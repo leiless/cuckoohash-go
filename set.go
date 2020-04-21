@@ -47,8 +47,11 @@ func newCuckooHashSet(debug, expandable bool, bytesPerKey, keysPerBucket, bucket
 	if buckets <= 0 {
 		buckets = DefaultBuckets
 	}
-	buckets = nextPowerOfTwo(buckets)
-	arr := make([][][]byte, buckets)
+	buckets1 := nextPowerOfTwo(buckets)
+	if buckets1 == 0 {
+		panic(fmt.Sprintf("buckets too large: %v", buckets))
+	}
+	arr := make([][][]byte, buckets1)
 	for i := range arr {
 		arr[i] = make([][]byte, keysPerBucket)
 	}
@@ -58,8 +61,8 @@ func newCuckooHashSet(debug, expandable bool, bytesPerKey, keysPerBucket, bucket
 		arr:            arr,
 		bytesPerKey:    bytesPerKey,
 		keysPerBucket:  keysPerBucket,
-		buckets:        buckets,
-		bucketsPow:     bits.TrailingZeros(uint(buckets)),
+		buckets:        buckets1,
+		bucketsPow:     bits.TrailingZeros(uint(buckets1)),
 		expandable:     expandable,
 		hasher1:		fnv.New64a(),
 	}

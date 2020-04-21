@@ -16,6 +16,8 @@ func init() {
 	}
 }
 
+// If n already power of 2, return value will be n itself
+// If n is 0 or 0xffffffff, zero is returned
 func nextPowerOfTwo(n uint32) uint32 {
 	n--
 	n |= n >> 1

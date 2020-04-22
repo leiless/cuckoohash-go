@@ -196,7 +196,7 @@ func (s *CuckooHashSet) MemoryInBytes() uint64 {
 }
 
 func (s *CuckooHashSet) LoadFactor() float64 {
-	return float64(s.count / uint64(s.buckets * s.keysPerBucket))
+	return float64(s.count) / float64(s.buckets * s.keysPerBucket)
 }
 
 func (s *CuckooHashSet) Contains(key []byte) bool {
@@ -311,7 +311,7 @@ func (s *CuckooHashSet) replace(t *CuckooHashSet) {
 }
 
 func (s *CuckooHashSet) String() string {
-	return fmt.Sprintf("[%T mem=%v, loadFactor=%.2f, debug=%v, count=%v, bytesPerKey=%v, keysPerBucket=%v, buckets=%v, bucketsPow=%v expandable=%v expansionCount=%v zeroHash2Count=%v]",
-		s, s.MemoryInBytes(), s.LoadFactor(), s.debug, s.count, s.bytesPerKey, s.keysPerBucket, s.buckets, s.bucketsPow, s.expandable, s.expansionCount, s.zeroHash2Count)
+	return fmt.Sprintf("[%T debug=%v, mem=%v, loadFactor=%.2f, count=%v, bytesPerKey=%v, keysPerBucket=%v, buckets=%v, bucketsPow=%v expandable=%v expansionCount=%v zeroHash2Count=%v]",
+		s, s.debug, formatBytes(s.MemoryInBytes()), s.LoadFactor(), s.count, s.bytesPerKey, s.keysPerBucket, s.buckets, s.bucketsPow, s.expandable, s.expansionCount, s.zeroHash2Count)
 }
 

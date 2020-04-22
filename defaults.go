@@ -2,8 +2,8 @@ package cuckoohash
 
 const (
 	DefaultBytesPerKey = 1
-	DefaultKeysPerBucket = 4
-	DefaultBuckets = 1024
+	DefaultKeysPerBucket = 8
+	DefaultBuckets = 1
 )
 
 var (

@@ -69,18 +69,16 @@ func newCuckooHashSet(debug, expandable bool, bytesPerKey, keysPerBucket, bucket
 }
 
 // For each key in the hash set
-// Return true if the fn completed on all keys, false otherwise.
-func (s *CuckooHashSet) forEachKey(fn func([]byte) bool) bool {
+func (s *CuckooHashSet) forEachKey(fn func([]byte)) {
 	var arr [][]byte
 	for i := range s.arr {
 		arr = s.arr[i]
 		for j := range arr {
-			if arr[j] != nil && !fn(arr[j]) {
-				return false
+			if arr[j] != nil {
+				fn(arr[j])
 			}
 		}
 	}
-	return true
 }
 
 func (s *CuckooHashSet) hash1(key []byte) uint32 {
@@ -156,6 +154,14 @@ func (s *CuckooHashSet) assertCount() {
 	if s.count > uint64(s.keysPerBucket * s.buckets) {
 		panic(fmt.Sprintf("count overflowed bucket capacity: %v vs %v * %v", s.count, s.keysPerBucket, s.buckets))
 	}
+
+	var count uint64
+	s.forEachKey(func(key []byte) {
+		count++
+	})
+	if count != s.count {
+		panic(fmt.Sprintf("count mismatch: expected %v, got %v", count, s.count))
+	}
 }
 
 func (s *CuckooHashSet) Clear() {
@@ -221,7 +227,7 @@ func (s *CuckooHashSet) add0(key []byte, h uint32) bool {
 			return true
 		}
 	}
-	// Out of luck, s.arr[h] is full
+	// Out of luck, arr is full
 	return false
 }
 
@@ -246,6 +252,7 @@ func (s *CuckooHashSet) add1(key []byte) bool {
 // Return true if key added to the set and previously not in the set
 // false if it already in the set(s.expandable = true)
 // false if the bucket is full(expandable = false)
+// You may call Contains() to distinguish between already exists and bucket full if expandable = false
 func (s *CuckooHashSet) Add(key []byte) bool {
 	if uint32(len(key)) != s.bytesPerKey {
 		panic(fmt.Sprintf("Cannot add, expected key size %v, got %v", s.bytesPerKey, len(key)))
@@ -268,7 +275,6 @@ func (s *CuckooHashSet) rehashOrExpand(key []byte, h uint32) bool {
 			return true
 		}
 	}
-
 	if !s.expandable {
 		return false
 	}
@@ -277,21 +283,31 @@ func (s *CuckooHashSet) rehashOrExpand(key []byte, h uint32) bool {
 		debug("Bucket is full, try to expand %v", s)
 	}
 
-	s2 := newCuckooHashSet(s.debug, true, s.bytesPerKey, s.keysPerBucket, s.buckets << 1)
-	s2.forEachKey(func(key []byte) bool {
-		if ok := s2.Add(key); !ok {
+	t := newCuckooHashSet(s.debug, true, s.bytesPerKey, s.keysPerBucket, s.buckets << 1)
+	t.forEachKey(func(key []byte) {
+		if ok := t.Add(key); !ok {
 			panic(fmt.Sprintf("Cannot add existing keys to expanded set"))
 		}
-		return true
 	})
-	if ok := s2.Add(key); !ok {
+	if ok := t.Add(key); !ok {
 		panic(fmt.Sprintf("Cannot add new key to expanded set"))
 	}
+	s.replace(t)
 
 	if s.debug {
 		debug("Set expanded, %v", s)
 	}
 	return true
+}
+
+func (s *CuckooHashSet) replace(t *CuckooHashSet) {
+	s.arr = t.arr
+	s.count = t.count
+	s.buckets = t.buckets
+	s.bucketsPow = t.bucketsPow
+	s.expansionCount += 1 + t.expansionCount
+	s.zeroHash2Count += t.zeroHash2Count
+	s.assertCount()
 }
 
 func (s *CuckooHashSet) String() string {

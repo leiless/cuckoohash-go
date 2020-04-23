@@ -47,7 +47,7 @@ func simpleHash(data []byte) uint64 {
 
 	h := uint64(1)
 	for _, b := range data {
-		h = uint64(31) *h + uint64(b)
+		h = uint64(31) * h + uint64(b)
 	}
 	return h
 }

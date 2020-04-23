@@ -14,6 +14,8 @@ func TestPerformance(t *testing.T) {
 	s := NewCuckooHashSet(md5.Size, keysPerBucket, buckets)
 	n := uint32(float64(keysPerBucket * buckets) * 0.66)
 	arr := make([][]byte, n)
+
+	t1 := time.Now()
 	for i := range arr {
 		u, err := uuid.NewRandom()
 		if err != nil {
@@ -26,14 +28,21 @@ func TestPerformance(t *testing.T) {
 		}
 		arr[i] = a
 	}
+	fmt.Printf("Data populate time spent: %v\n", time.Since(t1))
 
-	t1 := time.Now()
-	for i := range arr {
-		if !s.Add(arr[i]) {
-			t.Fatalf("%x seems already in set", arr[i])
+	t1 = time.Now()
+	for _, v := range arr {
+		if !s.Add(v) {
+			t.Fatalf("%x seems already in set", v)
 		}
 	}
 	fmt.Printf("Add() time spent: %v\n", time.Since(t1))
+
+	t1 = time.Now()
+	for _, v := range arr {
+		s.Contains(v)
+	}
+	fmt.Printf("All keys present in set, time spent: %v\n", time.Since(t1))
 
 	fmt.Printf("%v\n", s)
 }

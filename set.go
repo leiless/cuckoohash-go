@@ -114,7 +114,7 @@ func (s *CuckooHashSet) hash2(key []byte, h1 uint32) uint32 {
 // Thus caller must check nullability of the first argument of the fn
 //
 // Used for functions which may rewrite key binding
-func (s *CuckooHashSet) keyIndexByKey(key []byte, fn func([][]byte, int) interface{}) interface{} {
+func (s *CuckooHashSet) keyIndexByKey(key []byte, fn func([][]byte, int) bool) bool {
 	if uint32(len(key)) != s.bytesPerKey {
 		return fn(nil, -1)
 	}
@@ -142,8 +142,8 @@ func (s *CuckooHashSet) keyIndexByKey(key []byte, fn func([][]byte, int) interfa
 // Thus caller must check nullability of the first argument of the fn
 //
 // Used for functions which only read key binding
-func (s *CuckooHashSet) keyByKey(key []byte, fn func([]byte) interface{}) interface{} {
-	return s.keyIndexByKey(key, func(arr [][]byte, i int) interface{} {
+func (s *CuckooHashSet) keyByKey(key []byte, fn func([]byte) bool) bool {
+	return s.keyIndexByKey(key, func(arr [][]byte, i int) bool {
 		if arr == nil {
 			return fn(nil)
 		}
@@ -206,13 +206,13 @@ func (s *CuckooHashSet) LoadFactor() float64 {
 }
 
 func (s *CuckooHashSet) Contains(key []byte) bool {
-	return s.keyByKey(key, func(key []byte) interface{} {
+	return s.keyByKey(key, func(key []byte) bool {
 		return key != nil
-	}).(bool)
+	})
 }
 
 func (s *CuckooHashSet) Remove(key []byte) bool {
-	return s.keyIndexByKey(key, func(arr [][]byte, i int) interface{} {
+	return s.keyIndexByKey(key, func(arr [][]byte, i int) bool {
 		if arr == nil {
 			return false
 		}
@@ -220,7 +220,7 @@ func (s *CuckooHashSet) Remove(key []byte) bool {
 		s.count--
 		s.assertCount()
 		return true
-	}).(bool)
+	})
 }
 
 func (s *CuckooHashSet) add0(key []byte, h uint32) bool {

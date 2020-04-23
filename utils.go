@@ -35,7 +35,20 @@ func formatBytes(bytes uint64) string {
 		unit = "B"
 	}
 
-	result := strconv.FormatFloat(value, 'g', 2, 64)
+	result := strconv.FormatFloat(value, 'f', 1, 64)
 	return result + unit
+}
+
+// Code taken from java.util.Arrays#hashCode()
+func simpleHash(data []byte) uint64 {
+	if len(data) == 0 {
+		return 0
+	}
+
+	h := uint64(1)
+	for _, b := range data {
+		h = uint64(31) *h + uint64(b)
+	}
+	return h
 }
 

@@ -12,7 +12,7 @@ var (
 
 func init() {
 	for i := range masks {
-		masks[i] = (1 << i) - 1
+		masks[i] = (uint64(1) << i) - 1
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 func TestPerformance(t *testing.T) {
 	keysPerBucket := uint32(16)
 	buckets := uint32(300_000)
-	s := NewCuckooHashSet(md5.Size, keysPerBucket, 1)
+	s := NewCuckooHashSet(md5.Size, keysPerBucket, buckets)
 	n := uint32(float64(keysPerBucket * buckets) * 0.66)
 	arr := make([][]byte, n)
 	for i := range arr {
@@ -24,7 +24,6 @@ func TestPerformance(t *testing.T) {
 		for i, b := range sum {
 			a[i] = b
 		}
-		//arr[i] = md5.Sum([]byte(u.String()))
 		arr[i] = a
 	}
 

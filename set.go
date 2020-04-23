@@ -7,11 +7,11 @@ package cuckoohash
 import (
 	"bytes"
 	"fmt"
-	"hash"
-	"hash/fnv"
-	"hash/maphash"
+	"github.com/OneOfOne/xxhash"
+	gofarm "github.com/dgryski/go-farm"
 	"math/bits"
 	"math/rand"
+	"time"
 )
 
 type CuckooHashSet struct {
@@ -29,8 +29,8 @@ type CuckooHashSet struct {
 	expansionCount uint8
 	zeroHash2Count uint64
 
-	hasher1 hash.Hash64
-	hasher2 maphash.Hash
+	seed1 uint64
+	seed2 uint64
 }
 
 func NewCuckooHashSet(bytesPerKey, keysPerBucket, buckets uint32) *CuckooHashSet {
@@ -64,7 +64,8 @@ func newCuckooHashSet(debug, expandable bool, bytesPerKey, keysPerBucket, bucket
 		buckets:        buckets1,
 		bucketsPow:     bits.TrailingZeros(uint(buckets1)),
 		expandable:     expandable,
-		hasher1:		fnv.New64a(),
+		seed1: 			uint64(time.Now().UnixNano()),
+		seed2: 			uint64(time.Now().UnixNano()),
 	}
 }
 
@@ -82,22 +83,27 @@ func (s *CuckooHashSet) forEachKey(fn func([]byte)) {
 }
 
 func (s *CuckooHashSet) hash1(key []byte) uint32 {
-	n, err := s.hasher1.Write(key)
-	if err != nil || n != len(key) {
-		panic(fmt.Sprintf("hash1 failed: err: %v n: %v vs %v", err, n, len(key)))
-	}
-	h := s.hasher1.Sum64() & masks[s.bucketsPow]
-	s.hasher1.Reset()
-	return uint32(h)
+	return uint32(gofarm.Hash64WithSeed(key, s.seed1) & masks[s.bucketsPow])
 }
 
 func (s *CuckooHashSet) hash2(key []byte, h1 uint32) uint32 {
-	n, err := s.hasher2.Write(key)
-	if err != nil || n != len(key) {
-		panic(fmt.Sprintf("hash2 failed: err: %v n: %v vs %v", err, n, len(key)))
+	hh := xxhash.Checksum64S(key, s.seed2)
+	h := hh & masks[s.bucketsPow]
+	if h == 0 {
+		hh2 := simpleHash(key)
+		h = hh2 & masks[s.bucketsPow]
+		if h == 0 {
+			for hh != 0 {
+				h = (hh ^ hh2) & masks[s.bucketsPow]
+				if h != 0 {
+					break
+				}
+				hh >>= 8
+			}
+			// Let alone if h still zero, since the possibility is rare
+			// In such case, expansion is the last resort can help
+		}
 	}
-	h := s.hasher2.Sum64() & masks[s.bucketsPow]
-	s.hasher2.Reset()
 	if h == 0 && s.bucketsPow == 0 {
 		s.zeroHash2Count++
 	}
@@ -271,7 +277,7 @@ func (s *CuckooHashSet) rehashOrExpand(key []byte, h uint32) bool {
 		key = arr[i]
 		arr[i] = newKey
 
-		if s.add0(key, h) {
+		if s.add0(key, s.hash2(key, h)) {
 			return true
 		}
 	}
@@ -284,7 +290,7 @@ func (s *CuckooHashSet) rehashOrExpand(key []byte, h uint32) bool {
 	}
 
 	t := newCuckooHashSet(s.debug, true, s.bytesPerKey, s.keysPerBucket, s.buckets << 1)
-	t.forEachKey(func(key []byte) {
+	s.forEachKey(func(key []byte) {
 		if ok := t.Add(key); !ok {
 			panic(fmt.Sprintf("Cannot add existing keys to expanded set"))
 		}
@@ -307,6 +313,8 @@ func (s *CuckooHashSet) replace(t *CuckooHashSet) {
 	s.bucketsPow = t.bucketsPow
 	s.expansionCount += 1 + t.expansionCount
 	s.zeroHash2Count += t.zeroHash2Count
+	s.seed1 = t.seed1
+	s.seed2 = t.seed2
 	s.assertCount()
 }
 

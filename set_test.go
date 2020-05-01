@@ -8,6 +8,60 @@ import (
 	"time"
 )
 
+func TestBaseline1(t *testing.T) {
+	s := newCuckooHashSet(true, false, 1, 1, 1)
+	if !s.IsEmpty() {
+		t.Fatalf("%v should be empty", s)
+	}
+	fmt.Printf("%v\n", s)
+	b := []byte{0}
+	if ok := s.Add(b); !ok {
+		t.Fatalf("Add() shouldn't fail")
+	}
+	if !s.Contains(b) {
+		t.Fatalf("Why %x not in %v", b, s)
+	}
+	if s.Count() != 1 {
+		t.Fatalf("Bad count %v", s.Count())
+	}
+	if s.LoadFactor() != 1.0 {
+		t.Fatalf("%v should full by now", s)
+	}
+	fmt.Printf("%v\n", s)
+
+	if ok := s.Remove(b); !ok {
+		t.Fatalf("Why %x not in %v previously", b, s)
+	}
+	if !s.IsEmpty() {
+		t.Fatalf("%v should be empty", s)
+	}
+
+	if ok := s.Add(b); !ok {
+		t.Fatalf("Add() shouldn't fail")
+	}
+	if s.Count() != 1 {
+		t.Fatalf("Bad count %v", s.Count())
+	}
+	s.Clear()
+	if !s.IsEmpty() {
+		t.Fatalf("%v should be empty", s)
+	}
+
+	if ok := s.Add(b); !ok {
+		t.Fatalf("Add() shouldn't fail")
+	}
+	b2 := []byte{1}
+	if ok := s.Add(b2); ok {
+		t.Fatalf("Add() should not success, since expandable is false")
+	}
+	if s.Contains(b2) {
+		t.Fatalf("Why %v contains %x", s, b2)
+	}
+	if s.Count() != 1 {
+		t.Fatalf("Bad count %v", s.Count())
+	}
+}
+
 func TestPerformance(t *testing.T) {
 	keysPerBucket := uint32(16)
 	buckets := uint32(300_000)

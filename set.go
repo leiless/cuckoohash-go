@@ -289,6 +289,8 @@ func (s *CuckooHashSet) rehashOrExpand(key []byte, h uint32) bool {
 		}
 	}
 	if !s.expandable {
+		// Restore initial swapped key back, key location will be shifted by 1
+		arr[0] = key
 		return false
 	}
 

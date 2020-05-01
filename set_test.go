@@ -11,7 +11,7 @@ import (
 func TestPerformance(t *testing.T) {
 	keysPerBucket := uint32(16)
 	buckets := uint32(300_000)
-	s := NewCuckooHashSet(md5.Size, keysPerBucket, buckets)
+	s := NewCuckooHashSet(md5.Size, keysPerBucket, 1)
 	n := uint32(float64(keysPerBucket * buckets) * 0.66)
 	arr := make([][]byte, n)
 
@@ -36,14 +36,35 @@ func TestPerformance(t *testing.T) {
 			t.Fatalf("%x seems already in set", v)
 		}
 	}
-	fmt.Printf("Add() time spent: %v\n", time.Since(t1))
+	fmt.Printf("Add() without optimal buckets, time spent: %v\n", time.Since(t1))
+	fmt.Printf("%v\n", s)
+
+	s1 := NewCuckooHashSet(md5.Size, keysPerBucket, s.buckets)
+	t1 = time.Now()
+	for _, v := range arr {
+		if !s1.Add(v) {
+			t.Fatalf("%x seems already in set", v)
+		}
+	}
+	fmt.Printf("Add() with optimal buckets, time spent: %v\n", time.Since(t1))
+	fmt.Printf("%v\n", s1)
 
 	t1 = time.Now()
 	for _, v := range arr {
 		s.Contains(v)
 	}
-	fmt.Printf("All keys present in set, time spent: %v\n", time.Since(t1))
+	fmt.Printf("Contains() time spent: %v\n", time.Since(t1))
 
+	t1 = time.Now()
+	for _, v := range arr {
+		if !s.Remove(v) {
+			t.Fatalf("%x not in set", v)
+		}
+	}
+	fmt.Printf("Remove() time spent: %v\n", time.Since(t1))
 	fmt.Printf("%v\n", s)
+	if !s.IsEmpty() {
+		t.Fatalf("%v should be empty by now", s)
+	}
 }
 

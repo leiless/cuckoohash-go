@@ -86,6 +86,10 @@ func (s *CuckooHashSet) hash1(key []byte) uint32 {
 	return uint32(gofarm.Hash64WithSeed(key, s.seed1) & masks[s.bucketsPow])
 }
 
+// Return alternate hash to resolve hashing collision, it possibly equals to h1
+// To reduce hashing collision, hash 2 function should satisfy:
+// 		h1(key) ^ h2(key) != h1(key)
+// Which means h2(key) shouldn't return zero value(unless bucket size very small, e.g. 1)
 func (s *CuckooHashSet) hash2(key []byte, h1 uint32) uint32 {
 	hh := xxhash.Checksum64S(key, s.seed2)
 	h := hh & masks[s.bucketsPow]
@@ -104,7 +108,7 @@ func (s *CuckooHashSet) hash2(key []byte, h1 uint32) uint32 {
 			// In such case, expansion is the last resort can help
 		}
 	}
-	if h == 0 && s.bucketsPow == 0 {
+	if h == 0 && s.bucketsPow != 0 {
 		s.zeroHash2Count++
 	}
 	return h1 ^ uint32(h)
@@ -193,7 +197,7 @@ func (s *CuckooHashSet) Count() uint64 {
 }
 
 func (s *CuckooHashSet) IsEmpty() bool {
-	return s.Count() != 0
+	return s.Count() == 0
 }
 
 // Return estimated memory in bytes used by arr
@@ -256,9 +260,9 @@ func (s *CuckooHashSet) add1(key []byte) bool {
 }
 
 // Return true if key added to the set and previously not in the set
-// false if it already in the set(s.expandable = true)
-// false if the bucket is full(expandable = false)
-// You may call Contains() to distinguish between already exists and bucket full if expandable = false
+// false if it already in the set
+// false if the bucket is full(s.expandable = false)
+// You may call Contains() to distinguish between already exists and bucket full if s.expandable = false
 func (s *CuckooHashSet) Add(key []byte) bool {
 	if uint32(len(key)) != s.bytesPerKey {
 		panic(fmt.Sprintf("Cannot add, expected key size %v, got %v", s.bytesPerKey, len(key)))
@@ -269,6 +273,9 @@ func (s *CuckooHashSet) Add(key []byte) bool {
 	return s.add1(key)
 }
 
+// Linearly kick-out elements from existing buckets
+//	and re-add those kicked out elements again into a alternate open positions
+// If that fails, expand the buckets and re-add all elements in the hash set
 func (s *CuckooHashSet) rehashOrExpand(key []byte, h uint32) bool {
 	arr := s.arr[h]
 	var newKey []byte
@@ -289,6 +296,7 @@ func (s *CuckooHashSet) rehashOrExpand(key []byte, h uint32) bool {
 		debug("Bucket is full, try to expand %v", s)
 	}
 
+	// After re-add, s.buckets may not equals to s.buckets << 1, i.e. the new hash set expanded again internally.
 	t := newCuckooHashSet(s.debug, true, s.bytesPerKey, s.keysPerBucket, s.buckets << 1)
 	s.forEachKey(func(key []byte) {
 		if ok := t.Add(key); !ok {

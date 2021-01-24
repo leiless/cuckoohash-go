@@ -151,17 +151,62 @@ func (m *Map) forEachKV(f kvFunc) bool {
 
 			// if len(kv) == 1, it means value is nil, we don't store nil directly at [1]
 			m.assert(len(kv) == 1 || len(kv) == 2)
+
 			var k, v []byte
 			k = kv[0]
+			m.assert(k != nil)
 			if len(kv) == 2 {
 				v = kv[1]
 			}
+
 			if !f(k, v) {
 				return false
 			}
 		}
 	}
 	return true
+}
+
+type bucketIndexFunc = func([][][]byte, uint32) interface{}
+
+// Index key-value by key
+//
+// If given key not found in the map, the bucketIndexFunc will be called with special arguments: (nil, 0)
+// Caller must check nullability of the first argument in bucketIndexFunc
+//
+// For functions which may rewrite key and/or value binding
+func (m *Map) kvIndexByKey(key []byte, f bucketIndexFunc) interface{} {
+	if uint32(len(key)) != m.bytesPerKey {
+		return f(nil, 0)
+	}
+
+	h1 := m.hash1(key)
+	bucket := m.buckets[h1]
+	for i := uint32(0); i < uint32(len(bucket)); i++ {
+		if bucket[i] == nil {
+			continue
+		}
+
+		if byteSliceEquals(bucket[i][0], key) {
+			return f(bucket, i)
+		}
+	}
+
+	// Skip scan bucket if h2 equals to h1
+	if h2 := m.hash2(key, h1); h2 != h1 {
+		bucket = m.buckets[h2]
+		for i := uint32(0); i < uint32(len(bucket)); i++ {
+			if bucket[i] == nil {
+				continue
+			}
+
+			if byteSliceEquals(bucket[i][0], key) {
+				return f(bucket, i)
+			}
+		}
+	}
+
+	return f(nil, 0)
 }
 
 // Return a raw hash value
@@ -216,4 +261,30 @@ func (m *Map) hash2(key []byte, h1 uint32) uint32 {
 		m.zeroHash2Count++
 	}
 	return h2
+}
+
+func (m *Map) containsKey(key []byte) bool {
+	return m.kvIndexByKey(key, func(bucket [][][]byte, _ uint32) interface{} {
+		return bucket != nil
+	}).(bool)
+}
+
+func byteSliceEquals(lhs, rhs []byte) bool {
+	if len(lhs) == len(rhs) {
+		for i := 0; i < len(lhs); i++ {
+			if lhs[i] != rhs[i] {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+// This function yield a bad performance since it'll linearly scan the whole array
+//	you should generally not to call this function as much as you can
+func (m *Map) containsValue(val []byte) bool {
+	return !m.forEachKV(func(_ []byte, v []byte) bool {
+		return !byteSliceEquals(v, val)
+	})
 }

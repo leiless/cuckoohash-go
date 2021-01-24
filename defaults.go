@@ -1,9 +1,9 @@
 package cuckoohash
 
 const (
-	DefaultBytesPerKey = 1
+	DefaultBytesPerKey   = 1
 	DefaultKeysPerBucket = 8
-	DefaultBuckets = 1
+	DefaultBuckets       = 1
 )
 
 var (
@@ -28,4 +28,3 @@ func nextPowerOfTwo(n uint32) uint32 {
 	n++
 	return n
 }
-

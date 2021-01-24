@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-type CuckooHashSet struct {
+type Set struct {
 	debug bool
 
 	arr   [][][]byte
@@ -33,11 +33,11 @@ type CuckooHashSet struct {
 	seed2 uint64
 }
 
-func NewCuckooHashSet(bytesPerKey, keysPerBucket, buckets uint32) *CuckooHashSet {
+func NewCuckooHashSet(bytesPerKey, keysPerBucket, buckets uint32) *Set {
 	return newCuckooHashSet(false, true, bytesPerKey, keysPerBucket, buckets)
 }
 
-func newCuckooHashSet(debug, expandable bool, bytesPerKey, keysPerBucket, buckets uint32) *CuckooHashSet {
+func newCuckooHashSet(debug, expandable bool, bytesPerKey, keysPerBucket, buckets uint32) *Set {
 	if bytesPerKey <= 0 {
 		bytesPerKey = DefaultBytesPerKey
 	}
@@ -56,7 +56,7 @@ func newCuckooHashSet(debug, expandable bool, bytesPerKey, keysPerBucket, bucket
 		arr[i] = make([][]byte, keysPerBucket)
 	}
 	// [][][data] will be allocated on demand
-	return &CuckooHashSet{
+	return &Set{
 		debug:         debug,
 		arr:           arr,
 		bytesPerKey:   bytesPerKey,
@@ -70,7 +70,7 @@ func newCuckooHashSet(debug, expandable bool, bytesPerKey, keysPerBucket, bucket
 }
 
 // For each key in the hash set
-func (s *CuckooHashSet) forEachKey(fn func([]byte)) {
+func (s *Set) forEachKey(fn func([]byte)) {
 	var arr [][]byte
 	for i := range s.arr {
 		arr = s.arr[i]
@@ -82,7 +82,7 @@ func (s *CuckooHashSet) forEachKey(fn func([]byte)) {
 	}
 }
 
-func (s *CuckooHashSet) hash1(key []byte) uint32 {
+func (s *Set) hash1(key []byte) uint32 {
 	return uint32(gofarm.Hash64WithSeed(key, s.seed1) & masks[s.bucketsPow])
 }
 
@@ -90,7 +90,7 @@ func (s *CuckooHashSet) hash1(key []byte) uint32 {
 // To reduce hashing collision, hash 2 function should satisfy:
 // 		h1(key) ^ h2(key) != h1(key)
 // Which means h2(key) shouldn't return zero value(unless bucket size very small, e.g. 1)
-func (s *CuckooHashSet) hash2(key []byte, h1 uint32) uint32 {
+func (s *Set) hash2(key []byte, h1 uint32) uint32 {
 	hh := xxhash.Checksum64S(key, s.seed2)
 	h := hh & masks[s.bucketsPow]
 	if h == 0 {
@@ -118,7 +118,7 @@ func (s *CuckooHashSet) hash2(key []byte, h1 uint32) uint32 {
 // Thus caller must check nullability of the first argument of the fn
 //
 // Used for functions which may rewrite key binding
-func (s *CuckooHashSet) keyIndexByKey(key []byte, fn func([][]byte, int) bool) bool {
+func (s *Set) keyIndexByKey(key []byte, fn func([][]byte, int) bool) bool {
 	if uint32(len(key)) != s.bytesPerKey {
 		return fn(nil, -1)
 	}
@@ -146,7 +146,7 @@ func (s *CuckooHashSet) keyIndexByKey(key []byte, fn func([][]byte, int) bool) b
 // Thus caller must check nullability of the first argument of the fn
 //
 // Used for functions which only read key binding
-func (s *CuckooHashSet) keyByKey(key []byte, fn func([]byte) bool) bool {
+func (s *Set) keyByKey(key []byte, fn func([]byte) bool) bool {
 	return s.keyIndexByKey(key, func(arr [][]byte, i int) bool {
 		if arr == nil {
 			return fn(nil)
@@ -155,7 +155,7 @@ func (s *CuckooHashSet) keyByKey(key []byte, fn func([]byte) bool) bool {
 	})
 }
 
-func (s *CuckooHashSet) assertCount() {
+func (s *Set) assertCount() {
 	if !s.debug {
 		return
 	}
@@ -176,7 +176,7 @@ func (s *CuckooHashSet) assertCount() {
 	}
 }
 
-func (s *CuckooHashSet) Clear() {
+func (s *Set) Clear() {
 	var arr [][]byte
 	for i := range s.arr {
 		arr = s.arr[i]
@@ -193,31 +193,31 @@ func (s *CuckooHashSet) Clear() {
 	}
 }
 
-func (s *CuckooHashSet) Count() uint64 {
+func (s *Set) Count() uint64 {
 	s.assertCount()
 	return s.count
 }
 
-func (s *CuckooHashSet) IsEmpty() bool {
+func (s *Set) IsEmpty() bool {
 	return s.Count() == 0
 }
 
 // Return estimated memory in bytes used by arr
-func (s *CuckooHashSet) MemoryInBytes() uint64 {
+func (s *Set) MemoryInBytes() uint64 {
 	return uint64(s.buckets*s.keysPerBucket) + uint64(s.bytesPerKey)*s.count
 }
 
-func (s *CuckooHashSet) LoadFactor() float64 {
+func (s *Set) LoadFactor() float64 {
 	return float64(s.count) / float64(s.buckets*s.keysPerBucket)
 }
 
-func (s *CuckooHashSet) Contains(key []byte) bool {
+func (s *Set) Contains(key []byte) bool {
 	return s.keyByKey(key, func(key []byte) bool {
 		return key != nil
 	})
 }
 
-func (s *CuckooHashSet) Remove(key []byte) bool {
+func (s *Set) Remove(key []byte) bool {
 	return s.keyIndexByKey(key, func(arr [][]byte, i int) bool {
 		if arr == nil {
 			return false
@@ -229,7 +229,7 @@ func (s *CuckooHashSet) Remove(key []byte) bool {
 	})
 }
 
-func (s *CuckooHashSet) add0(key []byte, h uint32) bool {
+func (s *Set) add0(key []byte, h uint32) bool {
 	arr := s.arr[h]
 	for i, k := range arr {
 		if k == nil {
@@ -243,7 +243,7 @@ func (s *CuckooHashSet) add0(key []byte, h uint32) bool {
 	return false
 }
 
-func (s *CuckooHashSet) add1(key []byte) bool {
+func (s *Set) add1(key []byte) bool {
 	h1 := s.hash1(key)
 	if s.add0(key, h1) {
 		return true
@@ -265,7 +265,7 @@ func (s *CuckooHashSet) add1(key []byte) bool {
 // false if it already in the set
 // false if the bucket is full(s.expandable = false)
 // You may call Contains() to distinguish between already exists and bucket full if s.expandable = false
-func (s *CuckooHashSet) Add(key []byte) bool {
+func (s *Set) Add(key []byte) bool {
 	if uint32(len(key)) != s.bytesPerKey {
 		panic(fmt.Sprintf("Cannot add, expected key size %v, got %v", s.bytesPerKey, len(key)))
 	}
@@ -278,7 +278,7 @@ func (s *CuckooHashSet) Add(key []byte) bool {
 // Linearly kick-out elements from existing buckets
 //	and re-add those kicked out elements again into a alternate open positions
 // If that fails, expand the buckets and re-add all elements in the hash set
-func (s *CuckooHashSet) rehashOrExpand(key []byte, h uint32) bool {
+func (s *Set) rehashOrExpand(key []byte, h uint32) bool {
 	arr := s.arr[h]
 	var newKey []byte
 	for i := uint32(0); i < s.keysPerBucket; i++ {
@@ -318,7 +318,7 @@ func (s *CuckooHashSet) rehashOrExpand(key []byte, h uint32) bool {
 	return true
 }
 
-func (s *CuckooHashSet) replace(t *CuckooHashSet) {
+func (s *Set) replace(t *Set) {
 	s.arr = t.arr
 	s.count = t.count
 	s.buckets = t.buckets
@@ -330,7 +330,7 @@ func (s *CuckooHashSet) replace(t *CuckooHashSet) {
 	s.assertCount()
 }
 
-func (s *CuckooHashSet) String() string {
+func (s *Set) String() string {
 	return fmt.Sprintf("[%T debug=%v, mem=%v, loadFactor=%.2f, count=%v, bytesPerKey=%v, keysPerBucket=%v, buckets=%v, bucketsPow=%v expandable=%v expansionCount=%v zeroHash2Count=%v]",
 		s, s.debug, formatBytes(s.MemoryInBytes()), s.LoadFactor(), s.count, s.bytesPerKey, s.keysPerBucket, s.buckets, s.bucketsPow, s.expandable, s.expansionCount, s.zeroHash2Count)
 }

@@ -66,7 +66,7 @@ func TestPerformance(t *testing.T) {
 	keysPerBucket := uint32(16)
 	buckets := uint32(300_000)
 	s := NewCuckooHashSet(md5.Size, keysPerBucket, 1)
-	n := uint32(float64(keysPerBucket * buckets) * 0.66)
+	n := uint32(float64(keysPerBucket*buckets) * 0.66)
 	arr := make([][]byte, n)
 
 	t1 := time.Now()
@@ -121,4 +121,3 @@ func TestPerformance(t *testing.T) {
 		t.Fatalf("%v should be empty by now", s)
 	}
 }
-

@@ -17,15 +17,15 @@ import (
 type CuckooHashSet struct {
 	debug bool
 
-	arr [][][]byte
+	arr   [][][]byte
 	count uint64
 
-	bytesPerKey uint32
+	bytesPerKey   uint32
 	keysPerBucket uint32
-	buckets uint32
-	bucketsPow int
+	buckets       uint32
+	bucketsPow    int
 
-	expandable bool
+	expandable     bool
 	expansionCount uint8
 	zeroHash2Count uint64
 
@@ -57,15 +57,15 @@ func newCuckooHashSet(debug, expandable bool, bytesPerKey, keysPerBucket, bucket
 	}
 	// [][][data] will be allocated on demand
 	return &CuckooHashSet{
-		debug:          debug,
-		arr:            arr,
-		bytesPerKey:    bytesPerKey,
-		keysPerBucket:  keysPerBucket,
-		buckets:        buckets1,
-		bucketsPow:     bits.TrailingZeros(uint(buckets1)),
-		expandable:     expandable,
-		seed1: 			uint64(time.Now().UnixNano()),
-		seed2: 			uint64(time.Now().UnixNano()),
+		debug:         debug,
+		arr:           arr,
+		bytesPerKey:   bytesPerKey,
+		keysPerBucket: keysPerBucket,
+		buckets:       buckets1,
+		bucketsPow:    bits.TrailingZeros(uint(buckets1)),
+		expandable:    expandable,
+		seed1:         uint64(time.Now().UnixNano()),
+		seed2:         uint64(time.Now().UnixNano()),
 	}
 }
 
@@ -156,12 +156,14 @@ func (s *CuckooHashSet) keyByKey(key []byte, fn func([]byte) bool) bool {
 }
 
 func (s *CuckooHashSet) assertCount() {
-	if !s.debug { return }
+	if !s.debug {
+		return
+	}
 
-	if s.buckets != 1 << s.bucketsPow {
+	if s.buckets != 1<<s.bucketsPow {
 		panic(fmt.Sprintf("buckets and bucketsPow mismatch: %v vs %v", s.buckets, s.bucketsPow))
 	}
-	if s.count > uint64(s.keysPerBucket * s.buckets) {
+	if s.count > uint64(s.keysPerBucket*s.buckets) {
 		panic(fmt.Sprintf("count overflowed bucket capacity: %v vs %v * %v", s.count, s.keysPerBucket, s.buckets))
 	}
 
@@ -202,11 +204,11 @@ func (s *CuckooHashSet) IsEmpty() bool {
 
 // Return estimated memory in bytes used by arr
 func (s *CuckooHashSet) MemoryInBytes() uint64 {
-	return uint64(s.buckets * s.keysPerBucket) + uint64(s.bytesPerKey) * s.count
+	return uint64(s.buckets*s.keysPerBucket) + uint64(s.bytesPerKey)*s.count
 }
 
 func (s *CuckooHashSet) LoadFactor() float64 {
-	return float64(s.count) / float64(s.buckets * s.keysPerBucket)
+	return float64(s.count) / float64(s.buckets*s.keysPerBucket)
 }
 
 func (s *CuckooHashSet) Contains(key []byte) bool {
@@ -299,7 +301,7 @@ func (s *CuckooHashSet) rehashOrExpand(key []byte, h uint32) bool {
 	}
 
 	// After re-add, s.buckets may not equals to s.buckets << 1, i.e. the new hash set expanded again internally.
-	t := newCuckooHashSet(s.debug, true, s.bytesPerKey, s.keysPerBucket, s.buckets << 1)
+	t := newCuckooHashSet(s.debug, true, s.bytesPerKey, s.keysPerBucket, s.buckets<<1)
 	s.forEachKey(func(key []byte) {
 		if ok := t.Add(key); !ok {
 			panic(fmt.Sprintf("Cannot add existing keys to expanded set"))
@@ -332,4 +334,3 @@ func (s *CuckooHashSet) String() string {
 	return fmt.Sprintf("[%T debug=%v, mem=%v, loadFactor=%.2f, count=%v, bytesPerKey=%v, keysPerBucket=%v, buckets=%v, bucketsPow=%v expandable=%v expansionCount=%v zeroHash2Count=%v]",
 		s, s.debug, formatBytes(s.MemoryInBytes()), s.LoadFactor(), s.count, s.bytesPerKey, s.keysPerBucket, s.buckets, s.bucketsPow, s.expandable, s.expansionCount, s.zeroHash2Count)
 }
-

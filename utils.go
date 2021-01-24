@@ -6,7 +6,7 @@ import (
 )
 
 func debug(format string, a ...interface{}) {
-	_, _ = fmt.Printf("[DBG] " + format + "\n", a...)
+	_, _ = fmt.Printf("[DBG] "+format+"\n", a...)
 }
 
 const (
@@ -47,8 +47,7 @@ func simpleHash(data []byte) uint64 {
 
 	h := uint64(1)
 	for _, b := range data {
-		h = uint64(31) * h + uint64(b)
+		h = uint64(31)*h + uint64(b)
 	}
 	return h
 }
-

@@ -8,6 +8,7 @@ package cuckoohash
 import (
 	"fmt"
 	"math/bits"
+	"math/rand"
 	"time"
 )
 
@@ -42,13 +43,14 @@ type Map struct {
 	// [][][0][*] as key(full fingerprint, see case 2)
 	// [][][1][*] as value(nullable)
 	buckets [][][][]byte
-	count   uint64
+	// Count of inserted keys
+	count uint64
 
 	// Fingerprint length
 	bytesPerKey uint32
 	// How many keys a bucket will store
 	keysPerBucket uint32
-	// Total bucket count, i.e. len(arr[:])
+	// Total bucket count, i.e. len(buckets)
 	bucketCount uint32
 	// Invariant: bucketCount == 1 << bucketPower
 	bucketPower uint32
@@ -61,14 +63,24 @@ type Map struct {
 	// Total bytes occupied of all values
 	valuesByteCount uint64
 
-	seed1 uint64
-	seed2 uint64
-
+	seed1   uint64
+	seed2   uint64
 	hasher1 Hasher
 	hasher2 Hasher
+	r       rand.Source64
 
 	// Used in testing
 	debug bool
+}
+
+func (m *Map) initBuckets() {
+	buckets := make([][][][]byte, m.bucketCount)
+	for i := range buckets {
+		// Key-value are allocated on demand
+		buckets[i] = make([][][]byte, m.keysPerBucket)
+	}
+	// [][][*] are allocated on demand
+	m.buckets = buckets
 }
 
 func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 Hasher) (*Map, error) {
@@ -88,18 +100,10 @@ func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint
 		return nil, ErrInvalidArgument
 	}
 
-	buckets := make([][][][]byte, bucketCount)
-	for i := range buckets {
-		// Key-value are allocated on demand
-		buckets[i] = make([][][]byte, keysPerBucket)
-	}
-	// [][][*] are allocated on demand
-
 	seed1 := uint64(time.Now().UnixNano())
 	seed2 := seed1 * 17
 
-	return &Map{
-		buckets:       buckets,
+	m := &Map{
 		bytesPerKey:   bytesPerKey,
 		keysPerBucket: keysPerBucket,
 		bucketCount:   bucketCount,
@@ -109,8 +113,11 @@ func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint
 		seed2:         seed2,
 		hasher1:       hasher1,
 		hasher2:       hasher2,
+		r:             rand.NewSource(int64(seed1)).(rand.Source64),
 		debug:         debug,
-	}, nil
+	}
+	m.initBuckets()
+	return m, nil
 }
 
 // Clumsy but cheap assertion, mainly used for debugging
@@ -125,7 +132,7 @@ func (m *Map) assert(cond bool) {
 func (m *Map) assertEQ(lhs, rhs interface{}) {
 	if m.debug {
 		if lhs != rhs {
-			panic(fmt.Sprintf("equality assertion failure: lhs: %v rhs: %v", lhs, rhs))
+			panic(fmt.Sprintf("equality assertion failure: lhs: %T %v rhs: %T %v", lhs, lhs, rhs, rhs))
 		}
 	}
 }
@@ -133,11 +140,12 @@ func (m *Map) assertEQ(lhs, rhs interface{}) {
 func (m *Map) assertNE(lhs, rhs interface{}) {
 	if m.debug {
 		if lhs == rhs {
-			panic(fmt.Sprintf("inequality assertion failure: val: %v", lhs))
+			panic(fmt.Sprintf("inequality assertion failure: val: %T %v", lhs, lhs))
 		}
 	}
 }
 
+// Return false to stop further iteration
 type kvFunc = func([]byte, []byte) bool
 
 // For each loop(read-only) on every key-value in the map
@@ -287,4 +295,149 @@ func (m *Map) containsValue(val []byte) bool {
 	return !m.forEachKV(func(_ []byte, v []byte) bool {
 		return !byteSliceEquals(v, val)
 	})
+}
+
+func (m *Map) Clear() {
+	if m.debug {
+		// TODO: assert count
+		snapshot := m.valuesByteCount
+		valuesByteCount := uint64(0)
+
+		for _, bucket := range m.buckets {
+			for i := range bucket {
+				if bucket[i] != nil {
+					if len(bucket[i]) == 2 {
+						n := uint64(len(bucket[i][1]))
+						valuesByteCount += n
+						m.valuesByteCount -= n
+					}
+					bucket[i] = nil
+					m.count--
+				}
+			}
+		}
+
+		if snapshot != valuesByteCount {
+			m.assertEQ(snapshot, valuesByteCount)
+		}
+		if m.valuesByteCount != 0 {
+			m.assertEQ(m.valuesByteCount, 0)
+		}
+		if m.count != 0 {
+			m.assertEQ(m.count, 0)
+		}
+	} else {
+		m.initBuckets()
+		m.valuesByteCount = 0
+		m.count = 0
+	}
+}
+
+func (m *Map) Count() uint64 {
+	// TODO: assert count
+	return m.count
+}
+
+func (m *Map) IsEmpty() bool {
+	return m.Count() != 0
+}
+
+// Return estimated memory in bytes used by m.buckets
+// Internal pointer byte count not included
+func (m *Map) MemoryInBytes() uint64 {
+	return uint64(m.bucketCount*m.keysPerBucket) +
+		uint64(m.bytesPerKey)*m.count +
+		m.valuesByteCount
+}
+
+func (m *Map) LoadFactor() float64 {
+	return float64(m.count) / float64(m.bucketCount*m.keysPerBucket)
+}
+
+func (m *Map) Get(key []byte, defaultValue ...[]byte) []byte {
+	if len(defaultValue) > 1 {
+		panic(fmt.Sprintf("at most one `defaultValue` argument can be passed"))
+	}
+
+	v := m.kvIndexByKey(key, func(b [][][]byte, i uint32) interface{} {
+		if b != nil && len(b[i]) == 2 {
+			return b[i][1]
+		}
+		return []byte(nil)
+	}).([]byte)
+
+	if v == nil && len(defaultValue) != 0 {
+		v = defaultValue[0]
+	}
+	return v
+}
+
+func (m *Map) put0(key []byte, val []byte, h uint32) bool {
+	bucket := m.buckets[h]
+	for i := range bucket {
+		if bucket[i] == nil {
+			if val != nil {
+				bucket[i] = make([][]byte, 2)
+				bucket[i][0] = key
+				bucket[i][1] = val
+				m.valuesByteCount += uint64(len(val))
+			} else {
+				bucket[i] = make([][]byte, 1)
+				bucket[i][0] = key
+			}
+			m.count++
+			// TODO: assert count
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Map) put1(key []byte, val []byte) error {
+	if uint32(len(key)) != m.bytesPerKey {
+		return ErrInvalidArgument
+	}
+
+	h1 := m.hash1(key)
+	if m.put0(key, val, h1) {
+		return nil
+	}
+
+	h2 := m.hash2(key, h1)
+	if h2 != h1 && m.put0(key, val, h2) {
+		return nil
+	}
+
+	h := h1
+	if m.r.Uint64()&1 == 0 {
+		h = h2
+	}
+	return m.rehashOrExpand(key, val, h)
+}
+
+// Return the value before Put
+func (m *Map) Put(key []byte, val []byte, ifAbsent ...bool) ([]byte, error) {
+	var absent bool
+	if n := len(ifAbsent); n > 1 {
+		panic(fmt.Sprintf("at most one `ifAbsent` argument can be passed"))
+	} else if n != 0 {
+		absent = ifAbsent[0]
+	}
+
+	if absent {
+		m.kvIndexByKey(key, func(b [][][]byte, i uint32) interface{} {
+			if b != nil {
+				if len(b[i]) == 2 {
+					return b[i][1]
+				}
+				return []byte(nil)
+			}
+			// Do Put
+		})
+	}
+
+}
+
+func (m *Map) rehashOrExpand(key []byte, val []byte, h uint32) error {
+
 }

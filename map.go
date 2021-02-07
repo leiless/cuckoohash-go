@@ -461,6 +461,86 @@ func (m *Map) update(key []byte, val []byte) ([]byte, bool) {
 }
 
 func (m *Map) rehashOrExpand(key []byte, val []byte, h uint32) error {
-	// TODO
+	bucket := m.buckets[h]
+	kv := make([]byte, len(key)+len(val))
+	for i := uint32(0); i < m.keysPerBucket; i++ {
+		newKV := kv
+		kv = bucket[i]
+		bucket[i] = newKV
+
+		m.valuesByteCount -= uint64(len(kv[m.bytesPerKey:]))
+		m.valuesByteCount += uint64(len(newKV[m.bytesPerKey:]))
+
+		if k := kv[:m.bytesPerKey]; m.put0(k, kv[m.bytesPerKey:], m.hash2(k, h)) {
+			return nil
+		}
+	}
+
+	if !m.expandable {
+		// Restore initial swapped key/value back, key/value location will be shifted down by 1
+		oldKV := bucket[0]
+		bucket[0] = kv
+		m.valuesByteCount -= uint64(len(oldKV[m.bytesPerKey:]))
+		m.valuesByteCount += uint64(len(kv[m.bytesPerKey:]))
+		return ErrBucketIsFull
+	}
+
+	if m.debug {
+		debug("Bucket is full, try to expand %v", m)
+	}
+
+	m.expandBucket()
+	if err := m.put1(key, val); err != nil {
+		panic("TODO")
+	}
+	if m.debug {
+		debug("%T expanded: %v", *m, m)
+	}
 	return nil
+}
+
+// see: initBuckets
+func (m *Map) expandBucket() {
+	buckets := make([][][]byte, m.bucketCount<<1)
+	mask := uint32((1 << m.bucketPower) - 1)
+	newMask := uint32((2 << m.bucketPower) - 1)
+	if m.debug {
+		m.assertEQ((mask<<1)^newMask, 1)
+	}
+
+	for i := uint32(0); i < m.bucketCount; i++ {
+		for j := uint32(0); j < m.keysPerBucket; j++ {
+			kv := m.buckets[i][j]
+			if kv == nil {
+				continue
+			}
+
+			k := kv[:m.bytesPerKey]
+			h1Raw := m.hash1Raw(k)
+			var hRaw uint32
+			if (h1Raw & mask) == i {
+				hRaw = h1Raw
+			} else {
+				h2Raw := m.hash2Raw(k, h1Raw)
+				m.assertEQ(h2Raw&mask, i)
+				hRaw = h2Raw
+			}
+
+			h := hRaw & newMask
+			if h == i {
+				// Highest bit position of hRaw and newMask not match
+			} else {
+				// h equals to i | (1 << m.bucketPower)
+				m.assertEQ(h, m.bucketCount+i)
+			}
+
+			buckets[h][j] = kv
+		}
+	}
+
+	m.buckets = buckets
+	m.bucketCount <<= 1
+	m.bucketPower++
+	m.expansionCount++
+	// TODO: assert count
 }

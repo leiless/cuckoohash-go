@@ -40,9 +40,8 @@ type Hasher interface {
 type Map struct {
 	// [*] bucket array
 	// [][*] which bucket
-	// [][][0][*] as key(full fingerprint, see case 2)
-	// [][][1][*] as value(nullable)
-	buckets [][][][]byte
+	// [][][*] as key-value combo(full fingerprint, see case 2)
+	buckets [][][]byte
 	// Count of inserted keys
 	count uint64
 
@@ -74,12 +73,11 @@ type Map struct {
 }
 
 func (m *Map) initBuckets() {
-	buckets := make([][][][]byte, m.bucketCount)
+	buckets := make([][][]byte, m.bucketCount)
 	for i := range buckets {
-		// Key-value are allocated on demand
-		buckets[i] = make([][][]byte, m.keysPerBucket)
+		buckets[i] = make([][]byte, m.keysPerBucket)
 	}
-	// [][][*] are allocated on demand
+	// Key-value, i.e. [][][*] are allocated on demand
 	m.buckets = buckets
 }
 
@@ -148,34 +146,30 @@ func (m *Map) assertNE(lhs, rhs interface{}) {
 // Return false to stop further iteration
 type kvFunc = func([]byte, []byte) bool
 
+func (m *Map) splitKV(kv []byte) ([]byte, []byte) {
+	if m.debug {
+		// If len(kv) equals to m.bytesPerKey, it means the value is nil
+		m.assert(uint32(len(kv)) >= m.bytesPerKey)
+	}
+	return kv[:m.bytesPerKey], kv[m.bytesPerKey:]
+}
+
 // For each loop(read-only) on every key-value in the map
 // Return true if function completed on all items
 func (m *Map) forEachKV(f kvFunc) bool {
 	for _, bucket := range m.buckets {
 		for _, kv := range bucket {
-			if kv == nil {
-				continue
-			}
-
-			// if len(kv) == 1, it means value is nil, we don't store nil directly at [1]
-			m.assert(len(kv) == 1 || len(kv) == 2)
-
-			var k, v []byte
-			k = kv[0]
-			m.assert(k != nil)
-			if len(kv) == 2 {
-				v = kv[1]
-			}
-
-			if !f(k, v) {
-				return false
+			if kv != nil {
+				if k, v := m.splitKV(kv); !f(k, v) {
+					return false
+				}
 			}
 		}
 	}
 	return true
 }
 
-type bucketIndexFunc = func([][][]byte, uint32) interface{}
+type bucketIndexFunc = func([][]byte, uint32) interface{}
 
 // Index key-value by key
 //
@@ -191,12 +185,10 @@ func (m *Map) kvIndexByKey(key []byte, f bucketIndexFunc) interface{} {
 	h1 := m.hash1(key)
 	bucket := m.buckets[h1]
 	for i := uint32(0); i < uint32(len(bucket)); i++ {
-		if bucket[i] == nil {
-			continue
-		}
-
-		if byteSliceEquals(bucket[i][0], key) {
-			return f(bucket, i)
+		if bucket[i] != nil {
+			if k := bucket[i][:m.bytesPerKey]; byteSliceEquals(k, key) {
+				return f(bucket, i)
+			}
 		}
 	}
 
@@ -204,12 +196,10 @@ func (m *Map) kvIndexByKey(key []byte, f bucketIndexFunc) interface{} {
 	if h2 := m.hash2(key, h1); h2 != h1 {
 		bucket = m.buckets[h2]
 		for i := uint32(0); i < uint32(len(bucket)); i++ {
-			if bucket[i] == nil {
-				continue
-			}
-
-			if byteSliceEquals(bucket[i][0], key) {
-				return f(bucket, i)
+			if bucket[i] != nil {
+				if k := bucket[i][:m.bytesPerKey]; byteSliceEquals(k, key) {
+					return f(bucket, i)
+				}
 			}
 		}
 	}
@@ -272,7 +262,7 @@ func (m *Map) hash2(key []byte, h1 uint32) uint32 {
 }
 
 func (m *Map) containsKey(key []byte) bool {
-	return m.kvIndexByKey(key, func(bucket [][][]byte, _ uint32) interface{} {
+	return m.kvIndexByKey(key, func(bucket [][]byte, _ uint32) interface{} {
 		return bucket != nil
 	}).(bool)
 }
@@ -306,11 +296,9 @@ func (m *Map) Clear() {
 		for _, bucket := range m.buckets {
 			for i := range bucket {
 				if bucket[i] != nil {
-					if len(bucket[i]) == 2 {
-						n := uint64(len(bucket[i][1]))
-						valuesByteCount += n
-						m.valuesByteCount -= n
-					}
+					n := uint64(len(bucket[i][m.bytesPerKey:]))
+					valuesByteCount += n
+					m.valuesByteCount -= n
 					bucket[i] = nil
 					m.count--
 				}
@@ -359,9 +347,9 @@ func (m *Map) Get(key []byte, defaultValue ...[]byte) []byte {
 		panic(fmt.Sprintf("at most one `defaultValue` argument can be passed"))
 	}
 
-	v := m.kvIndexByKey(key, func(b [][][]byte, i uint32) interface{} {
-		if b != nil && len(b[i]) == 2 {
-			return b[i][1]
+	v := m.kvIndexByKey(key, func(b [][]byte, i uint32) interface{} {
+		if b != nil {
+			return b[m.bytesPerKey:]
 		}
 		return []byte(nil)
 	}).([]byte)
@@ -376,15 +364,10 @@ func (m *Map) put0(key []byte, val []byte, h uint32) bool {
 	bucket := m.buckets[h]
 	for i := range bucket {
 		if bucket[i] == nil {
-			if val != nil {
-				bucket[i] = make([][]byte, 2)
-				bucket[i][0] = key
-				bucket[i][1] = val
-				m.valuesByteCount += uint64(len(val))
-			} else {
-				bucket[i] = make([][]byte, 1)
-				bucket[i][0] = key
-			}
+			b := make([]byte, len(key)+len(val))
+			copy(b, key)
+			copy(b[len(key):], val)
+			bucket[i] = b
 			m.count++
 			// TODO: assert count
 			return true
@@ -430,14 +413,11 @@ func (m *Map) Put(key []byte, val []byte, ifAbsent ...bool) ([]byte, error) {
 			e error
 		}
 
-		v := m.kvIndexByKey(key, func(b [][][]byte, i uint32) interface{} {
+		v := m.kvIndexByKey(key, func(b [][]byte, i uint32) interface{} {
 			if b != nil {
-				if len(b[i]) == 2 {
-					return result{
-						b: b[i][1],
-					}
+				return result{
+					b: b[i][m.bytesPerKey:],
 				}
-				return result{}
 			}
 			return result{
 				e: m.put1(key, val),
@@ -455,66 +435,32 @@ func (m *Map) Put(key []byte, val []byte, ifAbsent ...bool) ([]byte, error) {
 // Return true if old value was overwritten
 func (m *Map) update(key []byte, val []byte) ([]byte, bool) {
 	type result struct {
-		b       []byte
+		oldVal  []byte
 		updated bool
 	}
 
-	v := m.kvIndexByKey(key, func(b [][][]byte, i uint32) interface{} {
-		if b == nil {
+	v := m.kvIndexByKey(key, func(bucket [][]byte, i uint32) interface{} {
+		if bucket == nil {
 			return result{}
 		}
 
-		var oldVal []byte
+		oldVal := bucket[i][m.bytesPerKey:]
+		m.valuesByteCount -= uint64(len(oldVal))
+		b := make([]byte, len(key)+len(val))
+		copy(b, key)
+		copy(b[len(key):], val)
+		bucket[i] = b
 
-		if len(b[i]) == 2 {
-			oldVal = b[i][1]
-			m.valuesByteCount -= uint64(len(b[i][1]))
-		}
-
-		if val != nil {
-			if n := len(b[i]); n == 1 {
-				b[i] = [][]byte{
-					b[i][0],
-					val,
-				}
-			} else if n == 2 {
-				b[i][1] = val
-			} else {
-				panic("TODO")
-			}
-			m.valuesByteCount += uint64(len(val))
-		} else {
-			if n := len(b[i]); n == 1 {
-				// NOP
-			} else if n == 2 {
-				b[i] = [][]byte{
-					b[i][0],
-				}
-			} else {
-				panic("TODO")
-			}
-		}
 		return result{
-			b:       oldVal,
+			oldVal:  oldVal,
 			updated: true,
 		}
 	}).(result)
 
-	return v.b, v.updated
+	return v.oldVal, v.updated
 }
 
 func (m *Map) rehashOrExpand(key []byte, val []byte, h uint32) error {
-	bucket := m.buckets[h]
-	for i := uint32(0); i < m.keysPerBucket; i++ {
-		newKey := key
-		key = bucket[i][0]
-		bucket[i][0] = newKey
-
-		newVal := val
-		if len(bucket[i]) == 2 {
-			val = bucket[i][1]
-		} else {
-			val = nil
-		}
-	}
+	// TODO
+	return nil
 }

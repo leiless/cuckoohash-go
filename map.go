@@ -425,19 +425,96 @@ func (m *Map) Put(key []byte, val []byte, ifAbsent ...bool) ([]byte, error) {
 	}
 
 	if absent {
-		m.kvIndexByKey(key, func(b [][][]byte, i uint32) interface{} {
+		type result struct {
+			b []byte
+			e error
+		}
+
+		v := m.kvIndexByKey(key, func(b [][][]byte, i uint32) interface{} {
 			if b != nil {
 				if len(b[i]) == 2 {
-					return b[i][1]
+					return result{
+						b: b[i][1],
+					}
 				}
-				return []byte(nil)
+				return result{}
 			}
-			// Do Put
-		})
+			return result{
+				e: m.put1(key, val),
+			}
+		}).(result)
+		return v.b, v.e
 	}
 
+	if oldVal, updated := m.update(key, val); updated {
+		return oldVal, nil
+	}
+	return nil, m.put1(key, val)
+}
+
+// Return true if old value was overwritten
+func (m *Map) update(key []byte, val []byte) ([]byte, bool) {
+	type result struct {
+		b       []byte
+		updated bool
+	}
+
+	v := m.kvIndexByKey(key, func(b [][][]byte, i uint32) interface{} {
+		if b == nil {
+			return result{}
+		}
+
+		var oldVal []byte
+
+		if len(b[i]) == 2 {
+			oldVal = b[i][1]
+			m.valuesByteCount -= uint64(len(b[i][1]))
+		}
+
+		if val != nil {
+			if n := len(b[i]); n == 1 {
+				b[i] = [][]byte{
+					b[i][0],
+					val,
+				}
+			} else if n == 2 {
+				b[i][1] = val
+			} else {
+				panic("TODO")
+			}
+			m.valuesByteCount += uint64(len(val))
+		} else {
+			if n := len(b[i]); n == 1 {
+				// NOP
+			} else if n == 2 {
+				b[i] = [][]byte{
+					b[i][0],
+				}
+			} else {
+				panic("TODO")
+			}
+		}
+		return result{
+			b:       oldVal,
+			updated: true,
+		}
+	}).(result)
+
+	return v.b, v.updated
 }
 
 func (m *Map) rehashOrExpand(key []byte, val []byte, h uint32) error {
+	bucket := m.buckets[h]
+	for i := uint32(0); i < m.keysPerBucket; i++ {
+		newKey := key
+		key = bucket[i][0]
+		bucket[i][0] = newKey
 
+		newVal := val
+		if len(bucket[i]) == 2 {
+			val = bucket[i][1]
+		} else {
+			val = nil
+		}
+	}
 }

@@ -40,14 +40,27 @@ func formatBytes(bytes uint64) string {
 }
 
 // Code taken from java.util.Arrays#hashCode()
-func simpleHash(data []byte) uint64 {
-	if len(data) == 0 {
+// see: https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/Arrays.java#L4377
+func simpleHash(a []byte) uint64 {
+	if len(a) == 0 {
 		return 0
 	}
 
 	h := uint64(1)
-	for _, b := range data {
+	for _, b := range a {
 		h = uint64(31)*h + uint64(b)
 	}
 	return h
+}
+
+func byteSliceEquals(lhs, rhs []byte) bool {
+	if len(lhs) == len(rhs) {
+		for i := 0; i < len(lhs); i++ {
+			if lhs[i] != rhs[i] {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }

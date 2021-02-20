@@ -267,18 +267,6 @@ func (m *Map) containsKey(key []byte) bool {
 	}).(bool)
 }
 
-func byteSliceEquals(lhs, rhs []byte) bool {
-	if len(lhs) == len(rhs) {
-		for i := 0; i < len(lhs); i++ {
-			if lhs[i] != rhs[i] {
-				return false
-			}
-		}
-		return true
-	}
-	return false
-}
-
 // This function yield a bad performance since it'll linearly scan the whole array
 //	you should generally not to call this function as much as you can
 func (m *Map) containsValue(val []byte) bool {

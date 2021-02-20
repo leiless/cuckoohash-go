@@ -12,10 +12,6 @@ import (
 	"time"
 )
 
-type Hasher interface {
-	Hash64WithSeed(b []byte, seed uint64) uint64
-}
-
 // To simplify API design, we only accepts []byte as key-value
 //	for struct, you can marshal/hash it before insertion
 // Also note that all keys must be equal size

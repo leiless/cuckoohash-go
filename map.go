@@ -303,11 +303,28 @@ func (m *Map) assertCount() {
 	m.assertEQ(valuesByteCount, m.valuesByteCount)
 }
 
+func (m *Map) assertPosition() {
+	for i, bucket := range m.buckets {
+		for _, kv := range bucket {
+			if kv == nil {
+				continue
+			}
+
+			k, _ := m.splitKV(kv)
+			h1 := m.hash1(k)
+			if h1 != uint32(i) {
+				h2 := m.hash2(k, h1)
+				m.assertEQ(h2, i)
+			}
+		}
+	}
+}
+
 // Run internal sanity check upon the Map
 func (m *Map) sanityCheck() {
 	if m.debug {
 		m.assertCount()
-		// TODO: assert position
+		m.assertPosition()
 	}
 }
 

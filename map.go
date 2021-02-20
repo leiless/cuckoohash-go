@@ -515,11 +515,10 @@ func (m *Map) rehashOrExpand(key []byte, val []byte, h uint32) error {
 	}
 
 	m.expandBucket()
-	if err := m.put1(key, val); err != nil {
-		panic("TODO")
-	}
+	err := m.put1(key, val)
+	m.assertEQ(err, nil)
 	if m.debug {
-		debug("%T expanded: %v", *m, m)
+		debug("%T expanded: %+v", *m, m)
 	}
 	return nil
 }

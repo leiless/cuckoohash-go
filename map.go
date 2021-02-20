@@ -287,9 +287,34 @@ func (m *Map) containsValue(val []byte) bool {
 	})
 }
 
+func (m *Map) assertCount() {
+	m.assertEQ(m.bucketCount, 1<<m.bucketPower)
+	m.assert(m.count <= uint64(m.bucketCount*m.keysPerBucket))
+
+	var count uint64
+	var valuesByteCount uint64
+	ok := m.forEachKV(func(_ []byte, v []byte) bool {
+		count++
+		valuesByteCount += uint64(len(v))
+		return true
+	})
+	m.assert(ok)
+	m.assertEQ(count, m.count)
+	m.assertEQ(valuesByteCount, m.valuesByteCount)
+}
+
+// Run internal sanity check upon the Map
+func (m *Map) sanityCheck() {
+	if m.debug {
+		m.assertCount()
+		// TODO: assert position
+	}
+}
+
 func (m *Map) Clear() {
 	if m.debug {
-		// TODO: assert count
+		m.sanityCheck()
+
 		snapshot := m.valuesByteCount
 		valuesByteCount := uint64(0)
 
@@ -322,7 +347,7 @@ func (m *Map) Clear() {
 }
 
 func (m *Map) Count() uint64 {
-	// TODO: assert count
+	m.sanityCheck()
 	return m.count
 }
 
@@ -369,7 +394,7 @@ func (m *Map) put0(key []byte, val []byte, h uint32) bool {
 			copy(b[len(key):], val)
 			bucket[i] = b
 			m.count++
-			// TODO: assert count
+			m.sanityCheck()
 			return true
 		}
 	}
@@ -542,5 +567,6 @@ func (m *Map) expandBucket() {
 	m.bucketCount <<= 1
 	m.bucketPower++
 	m.expansionCount++
-	// TODO: assert count
+
+	m.sanityCheck()
 }

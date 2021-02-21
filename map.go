@@ -265,7 +265,7 @@ func (m *Map) hash2(key []byte, h1 uint32) uint32 {
 	return h2
 }
 
-func (m *Map) containsKey(key []byte) bool {
+func (m *Map) ContainsKey(key []byte) bool {
 	return m.kvIndexByKey(key, func(bucket [][]byte, _ uint32) interface{} {
 		return bucket != nil
 	}).(bool)
@@ -273,7 +273,7 @@ func (m *Map) containsKey(key []byte) bool {
 
 // This function yield a bad performance since it'll linearly scan the whole array
 //	you should generally not to call this function as much as you can
-func (m *Map) containsValue(val []byte) bool {
+func (m *Map) ContainsValue(val []byte) bool {
 	return !m.forEachKV(func(_ []byte, v []byte) bool {
 		return !byteSliceEquals(v, val)
 	})
@@ -355,7 +355,7 @@ func (m *Map) Count() uint64 {
 }
 
 func (m *Map) IsEmpty() bool {
-	return m.Count() != 0
+	return m.Count() == 0
 }
 
 // Return estimated memory in bytes used by m.buckets

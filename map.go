@@ -146,14 +146,6 @@ func (m *Map) assertEQ(lhs, rhs interface{}) {
 	}
 }
 
-func (m *Map) splitKV(kv []byte) ([]byte, []byte) {
-	if m.debug {
-		// If len(kv) equals to m.bytesPerKey, it means the value is nil
-		m.assert(uint32(len(kv)) >= m.bytesPerKey)
-	}
-	return kv[:m.bytesPerKey], kv[m.bytesPerKey:]
-}
-
 // Return false to stop further iteration
 type kvFunc = func([]byte, []byte) bool
 
@@ -163,7 +155,8 @@ func (m *Map) forEachKV(f kvFunc) bool {
 	for _, bucket := range m.buckets {
 		for _, kv := range bucket {
 			if kv != nil {
-				if k, v := m.splitKV(kv); !f(k, v) {
+				k, v := kv[:m.bytesPerKey], kv[m.bytesPerKey:]
+				if !f(k, v) {
 					return false
 				}
 			}
@@ -303,7 +296,7 @@ func (m *Map) assertPosition() {
 				continue
 			}
 
-			k, _ := m.splitKV(kv)
+			k := kv[:m.bytesPerKey]
 			h1 := m.hash1(k)
 			if h1 != uint32(i) {
 				h2 := m.hash2(k, h1)

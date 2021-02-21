@@ -2,13 +2,13 @@ package cuckoohash
 
 import (
 	"github.com/OneOfOne/xxhash"
-	gofarm "github.com/dgryski/go-farm"
+	"github.com/dgryski/go-farm"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 var (
-	h1 = gofarm.Hash64WithSeed
+	h1 = farm.Hash64WithSeed
 	h2 = xxhash.Checksum64S
 )
 
@@ -38,4 +38,11 @@ func TestNewMap(t *testing.T) {
 
 	m.Clear()
 	t.Log(m)
+
+	for i := 0; i < 256; i++ {
+		b := []byte{byte(i)}
+		oldVal, err := m.Put(b, b, true)
+		assert.Nil(t, err)
+		assert.Nil(t, oldVal)
+	}
 }

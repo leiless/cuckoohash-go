@@ -534,7 +534,7 @@ func (m *Map) rehashOrExpand(key []byte, val []byte, h uint32) error {
 	err := m.put1(key, val)
 	m.assertEQ(err, nil)
 	if m.debug {
-		debug("After expanded: %v", *m, m)
+		debug("After expanded: %v", m)
 	}
 	return nil
 }
@@ -542,6 +542,10 @@ func (m *Map) rehashOrExpand(key []byte, val []byte, h uint32) error {
 // see: initBuckets
 func (m *Map) expandBucket() {
 	buckets := make([][][]byte, m.bucketCount<<1)
+	for i := range buckets {
+		buckets[i] = make([][]byte, m.keysPerBucket)
+	}
+
 	mask := uint32((1 << m.bucketPower) - 1)
 	newMask := uint32((2 << m.bucketPower) - 1)
 	m.assertEQ((mask<<1)^newMask, uint32(1))

@@ -47,6 +47,9 @@ func TestNewMap(t *testing.T) {
 
 		v := m.Get(k)
 		assert.Equal(t, k, v)
+
+		assert.True(t, m.ContainsKey(k))
+		assert.True(t, m.ContainsValue(k))
 	}
 
 	for i := 0; i < 256; i++ {
@@ -57,6 +60,9 @@ func TestNewMap(t *testing.T) {
 
 		v := m.Get(k)
 		assert.Equal(t, k, v)
+
+		assert.True(t, m.ContainsKey(k))
+		assert.True(t, m.ContainsValue(k))
 	}
 
 	for i := 0; i < 256; i++ {

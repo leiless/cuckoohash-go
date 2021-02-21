@@ -143,6 +143,7 @@ func (m *Map) assert(cond bool) {
 	}
 }
 
+// Type and value must both be equal
 func (m *Map) assertEQ(lhs, rhs interface{}) {
 	if m.debug {
 		if lhs != rhs {
@@ -185,7 +186,7 @@ func (m *Map) kvIndexByKey(key []byte, f bucketIndexFunc) interface{} {
 
 	h1 := m.hash1(key)
 	bucket := m.buckets[h1]
-	m.assertEQ(len(bucket), m.keysPerBucket)
+	m.assertEQ(uint32(len(bucket)), m.keysPerBucket)
 	for i := uint32(0); i < m.keysPerBucket; i++ {
 		if bucket[i] != nil {
 			if k := bucket[i][:m.bytesPerKey]; byteSliceEquals(k, key) {
@@ -197,7 +198,7 @@ func (m *Map) kvIndexByKey(key []byte, f bucketIndexFunc) interface{} {
 	// Skip scan bucket if h2 equals to h1
 	if h2 := m.hash2(key, h1); h2 != h1 {
 		bucket = m.buckets[h2]
-		m.assertEQ(len(bucket), m.keysPerBucket)
+		m.assertEQ(uint32(len(bucket)), m.keysPerBucket)
 		for i := uint32(0); i < m.keysPerBucket; i++ {
 			if bucket[i] != nil {
 				if k := bucket[i][:m.bytesPerKey]; byteSliceEquals(k, key) {
@@ -305,7 +306,7 @@ func (m *Map) assertPosition() {
 			h1 := m.hash1(k)
 			if h1 != uint32(i) {
 				h2 := m.hash2(k, h1)
-				m.assertEQ(h2, i)
+				m.assertEQ(h2, uint32(i))
 			}
 		}
 	}
@@ -339,8 +340,8 @@ func (m *Map) Clear() {
 		}
 
 		m.assertEQ(snapshot, valuesByteCount)
-		m.assertEQ(m.valuesByteCount, 0)
-		m.assertEQ(m.count, 0)
+		m.assertEQ(m.valuesByteCount, uint64(0))
+		m.assertEQ(m.count, uint64(0))
 
 		m.sanityCheck()
 	} else {
@@ -543,7 +544,7 @@ func (m *Map) expandBucket() {
 	buckets := make([][][]byte, m.bucketCount<<1)
 	mask := uint32((1 << m.bucketPower) - 1)
 	newMask := uint32((2 << m.bucketPower) - 1)
-	m.assertEQ((mask<<1)^newMask, 1)
+	m.assertEQ((mask<<1)^newMask, uint32(1))
 
 	for i := uint32(0); i < m.bucketCount; i++ {
 		for j := uint32(0); j < m.keysPerBucket; j++ {

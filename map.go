@@ -122,7 +122,7 @@ func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint
 func NewMap(bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 Hasher, expandableOpt ...bool) (*Map, error) {
 	expandable := true
 	if n := len(expandableOpt); n > 1 {
-		panic(fmt.Sprintf("at most one bool can be passed to `expandableOpt`, got %v", n))
+		panic(fmt.Sprintf("at most one `expandableOpt` argument can be passed, got %v", n))
 	} else if n != 0 {
 		expandable = expandableOpt[0]
 	}
@@ -425,15 +425,15 @@ func (m *Map) put1(key []byte, val []byte) error {
 }
 
 // Return the value before Put
-func (m *Map) Put(key []byte, val []byte, ifAbsent ...bool) ([]byte, error) {
-	var absent bool
-	if n := len(ifAbsent); n > 1 {
-		panic(fmt.Sprintf("at most one `ifAbsent` argument can be passed, got %v", n))
+func (m *Map) Put(key []byte, val []byte, ifAbsentOpt ...bool) ([]byte, error) {
+	var ifAbsent bool
+	if n := len(ifAbsentOpt); n > 1 {
+		panic(fmt.Sprintf("at most one `ifAbsentOpt` argument can be passed, got %v", n))
 	} else if n != 0 {
-		absent = ifAbsent[0]
+		ifAbsent = ifAbsentOpt[0]
 	}
 
-	if absent {
+	if ifAbsent {
 		type result struct {
 			b []byte
 			e error
@@ -477,6 +477,7 @@ func (m *Map) update(key []byte, val []byte) ([]byte, bool) {
 		copy(b[len(key):], val)
 		bucket[i] = b
 		m.valuesByteCount += uint64(len(val))
+		m.sanityCheck()
 
 		return result{
 			oldVal:  oldVal,
@@ -515,6 +516,7 @@ func (m *Map) rehashOrExpand(key []byte, val []byte, h uint32) error {
 		bucket[0] = kv
 		m.valuesByteCount -= uint64(len(oldKV[m.bytesPerKey:]))
 		m.valuesByteCount += uint64(len(kv[m.bytesPerKey:]))
+		m.sanityCheck()
 		return ErrBucketIsFull
 	}
 

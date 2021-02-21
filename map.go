@@ -114,6 +114,7 @@ func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint
 		r:             rand.NewSource(int64(seed1)).(rand.Source64),
 	}
 	m.initBuckets()
+	m.sanityCheck()
 	return m, nil
 }
 
@@ -134,17 +135,6 @@ func (m *Map) assertEQ(lhs, rhs interface{}) {
 	}
 }
 
-func (m *Map) assertNE(lhs, rhs interface{}) {
-	if m.debug {
-		if lhs == rhs {
-			panic(fmt.Sprintf("inequality assertion failure: val: %T %v", lhs, lhs))
-		}
-	}
-}
-
-// Return false to stop further iteration
-type kvFunc = func([]byte, []byte) bool
-
 func (m *Map) splitKV(kv []byte) ([]byte, []byte) {
 	if m.debug {
 		// If len(kv) equals to m.bytesPerKey, it means the value is nil
@@ -152,6 +142,9 @@ func (m *Map) splitKV(kv []byte) ([]byte, []byte) {
 	}
 	return kv[:m.bytesPerKey], kv[m.bytesPerKey:]
 }
+
+// Return false to stop further iteration
+type kvFunc = func([]byte, []byte) bool
 
 // For each loop(read-only) on every key-value in the map
 // Return true if function completed on all items
@@ -183,7 +176,8 @@ func (m *Map) kvIndexByKey(key []byte, f bucketIndexFunc) interface{} {
 
 	h1 := m.hash1(key)
 	bucket := m.buckets[h1]
-	for i := uint32(0); i < uint32(len(bucket)); i++ {
+	m.assertEQ(len(bucket), m.keysPerBucket)
+	for i := uint32(0); i < m.keysPerBucket; i++ {
 		if bucket[i] != nil {
 			if k := bucket[i][:m.bytesPerKey]; byteSliceEquals(k, key) {
 				return f(bucket, i)
@@ -194,7 +188,8 @@ func (m *Map) kvIndexByKey(key []byte, f bucketIndexFunc) interface{} {
 	// Skip scan bucket if h2 equals to h1
 	if h2 := m.hash2(key, h1); h2 != h1 {
 		bucket = m.buckets[h2]
-		for i := uint32(0); i < uint32(len(bucket)); i++ {
+		m.assertEQ(len(bucket), m.keysPerBucket)
+		for i := uint32(0); i < m.keysPerBucket; i++ {
 			if bucket[i] != nil {
 				if k := bucket[i][:m.bytesPerKey]; byteSliceEquals(k, key) {
 					return f(bucket, i)
@@ -325,24 +320,20 @@ func (m *Map) Clear() {
 		for _, bucket := range m.buckets {
 			for i := range bucket {
 				if bucket[i] != nil {
-					n := uint64(len(bucket[i][m.bytesPerKey:]))
-					valuesByteCount += n
-					m.valuesByteCount -= n
+					vLen := uint64(len(bucket[i][m.bytesPerKey:]))
+					valuesByteCount += vLen
+					m.valuesByteCount -= vLen
 					bucket[i] = nil
 					m.count--
 				}
 			}
 		}
 
-		if snapshot != valuesByteCount {
-			m.assertEQ(snapshot, valuesByteCount)
-		}
-		if m.valuesByteCount != 0 {
-			m.assertEQ(m.valuesByteCount, 0)
-		}
-		if m.count != 0 {
-			m.assertEQ(m.count, 0)
-		}
+		m.assertEQ(snapshot, valuesByteCount)
+		m.assertEQ(m.valuesByteCount, 0)
+		m.assertEQ(m.count, 0)
+
+		m.sanityCheck()
 	} else {
 		m.initBuckets()
 	}
@@ -370,8 +361,8 @@ func (m *Map) LoadFactor() float64 {
 }
 
 func (m *Map) Get(key []byte, defaultValue ...[]byte) []byte {
-	if len(defaultValue) > 1 {
-		panic(fmt.Sprintf("at most one `defaultValue` argument can be passed"))
+	if n := len(defaultValue); n > 1 {
+		panic(fmt.Sprintf("at most one `defaultValue` argument can be passed, got %v", n))
 	}
 
 	v := m.kvIndexByKey(key, func(b [][]byte, i uint32) interface{} {
@@ -387,6 +378,7 @@ func (m *Map) Get(key []byte, defaultValue ...[]byte) []byte {
 	return v
 }
 
+// Return true if key-val put into given bucket
 func (m *Map) put0(key []byte, val []byte, h uint32) bool {
 	bucket := m.buckets[h]
 	for i := range bucket {
@@ -396,6 +388,8 @@ func (m *Map) put0(key []byte, val []byte, h uint32) bool {
 			copy(b[len(key):], val)
 			bucket[i] = b
 			m.count++
+			m.valuesByteCount += uint64(len(val))
+
 			m.sanityCheck()
 			return true
 		}
@@ -418,6 +412,7 @@ func (m *Map) put1(key []byte, val []byte) error {
 		return nil
 	}
 
+	// Use deterministic selection(with the seed1 backed by m.r)
 	h := h1
 	if m.r.Uint64()&1 == 0 {
 		h = h2
@@ -429,7 +424,7 @@ func (m *Map) put1(key []byte, val []byte) error {
 func (m *Map) Put(key []byte, val []byte, ifAbsent ...bool) ([]byte, error) {
 	var absent bool
 	if n := len(ifAbsent); n > 1 {
-		panic(fmt.Sprintf("at most one `ifAbsent` argument can be passed"))
+		panic(fmt.Sprintf("at most one `ifAbsent` argument can be passed, got %v", n))
 	} else if n != 0 {
 		absent = ifAbsent[0]
 	}
@@ -459,7 +454,7 @@ func (m *Map) Put(key []byte, val []byte, ifAbsent ...bool) ([]byte, error) {
 	return nil, m.put1(key, val)
 }
 
-// Return true if old value was overwritten
+// Return true if old value was overwritten, false if key not found in the Map
 func (m *Map) update(key []byte, val []byte) ([]byte, bool) {
 	type result struct {
 		oldVal  []byte
@@ -477,6 +472,7 @@ func (m *Map) update(key []byte, val []byte) ([]byte, bool) {
 		copy(b, key)
 		copy(b[len(key):], val)
 		bucket[i] = b
+		m.valuesByteCount += uint64(len(val))
 
 		return result{
 			oldVal:  oldVal,

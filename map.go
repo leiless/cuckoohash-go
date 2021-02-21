@@ -485,7 +485,11 @@ func (m *Map) update(key []byte, val []byte) ([]byte, bool) {
 
 func (m *Map) rehashOrExpand(key []byte, val []byte, h uint32) error {
 	bucket := m.buckets[h]
+
 	kv := make([]byte, len(key)+len(val))
+	copy(kv, key)
+	copy(kv[len(key):], val)
+
 	for i := uint32(0); i < m.keysPerBucket; i++ {
 		newKV := kv
 		kv = bucket[i]
@@ -494,7 +498,9 @@ func (m *Map) rehashOrExpand(key []byte, val []byte, h uint32) error {
 		m.valuesByteCount -= uint64(len(kv[m.bytesPerKey:]))
 		m.valuesByteCount += uint64(len(newKV[m.bytesPerKey:]))
 
-		if k := kv[:m.bytesPerKey]; m.put0(k, kv[m.bytesPerKey:], m.hash2(k, h)) {
+		k := kv[:m.bytesPerKey]
+		v := kv[m.bytesPerKey:]
+		if m.put0(k, v, m.hash2(k, h)) {
 			return nil
 		}
 	}
@@ -516,7 +522,7 @@ func (m *Map) rehashOrExpand(key []byte, val []byte, h uint32) error {
 	err := m.put1(key, val)
 	m.assertEQ(err, nil)
 	if m.debug {
-		debug("%T expanded: %+v", *m, m)
+		debug("After expanded: %v", *m, m)
 	}
 	return nil
 }
@@ -526,9 +532,7 @@ func (m *Map) expandBucket() {
 	buckets := make([][][]byte, m.bucketCount<<1)
 	mask := uint32((1 << m.bucketPower) - 1)
 	newMask := uint32((2 << m.bucketPower) - 1)
-	if m.debug {
-		m.assertEQ((mask<<1)^newMask, 1)
-	}
+	m.assertEQ((mask<<1)^newMask, 1)
 
 	for i := uint32(0); i < m.bucketCount; i++ {
 		for j := uint32(0); j < m.keysPerBucket; j++ {

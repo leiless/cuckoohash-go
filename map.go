@@ -266,12 +266,14 @@ func (m *Map) hash2(key []byte, h1 uint32) uint32 {
 	return h2
 }
 
+// Check if key present in the Map
 func (m *Map) ContainsKey(key []byte) bool {
 	return m.kvIndexByKey(key, func(bucket [][]byte, _ uint32) interface{} {
 		return bucket != nil
 	}).(bool)
 }
 
+// Check if any val present in the Map
 // This function yield a bad performance since it'll linearly scan the whole array
 //	you should generally not to call this function as much as you can
 func (m *Map) ContainsValue(val []byte) bool {
@@ -321,6 +323,7 @@ func (m *Map) sanityCheck() {
 	}
 }
 
+// Clear the whole Map, map capacity won't shrink
 func (m *Map) Clear() {
 	if m.debug {
 		m.sanityCheck()
@@ -350,11 +353,13 @@ func (m *Map) Clear() {
 	}
 }
 
+// Return total inserted elements in the Map
 func (m *Map) Count() uint64 {
 	m.sanityCheck()
 	return m.count
 }
 
+// Is there is no any element in the Map
 func (m *Map) IsEmpty() bool {
 	return m.Count() == 0
 }
@@ -367,10 +372,12 @@ func (m *Map) MemoryInBytes() uint64 {
 		m.valuesByteCount
 }
 
+// Return current load factor of the Map
 func (m *Map) LoadFactor() float64 {
 	return float64(m.count) / float64(m.bucketCount*m.keysPerBucket)
 }
 
+// Get value of a given key in the Map, return defaultValue if key not found
 func (m *Map) Get(key []byte, defaultValue ...[]byte) []byte {
 	if n := len(defaultValue); n > 1 {
 		panic(fmt.Sprintf("at most one `defaultValue` argument can be passed, got %v", n))
@@ -431,7 +438,8 @@ func (m *Map) put1(key []byte, val []byte) error {
 	return m.rehashOrExpand(key, val, h)
 }
 
-// Return the value before Put
+// Put a key-val into the Map, return the value before Put, or an error otherwise
+// ifAbsentOpt can be used to constrain insertion will succeeded only if key not in the Map previously
 func (m *Map) Put(key []byte, val []byte, ifAbsentOpt ...bool) ([]byte, error) {
 	var ifAbsent bool
 	if n := len(ifAbsentOpt); n > 1 {
@@ -591,6 +599,7 @@ func (m *Map) expandBucket() {
 	m.sanityCheck()
 }
 
+// Remove given key in the Map, return value associated previously, or an error otherwise
 func (m *Map) Del(key []byte) ([]byte, error) {
 	type result struct {
 		b []byte
@@ -618,6 +627,7 @@ func (m *Map) Del(key []byte) ([]byte, error) {
 	return v.b, v.e
 }
 
+// Return a descriptive debugging string
 func (m *Map) String() string {
 	f := strconv.FormatFloat(m.LoadFactor(), 'f', 3, 64)
 	return fmt.Sprintf(

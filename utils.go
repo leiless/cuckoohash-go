@@ -3,6 +3,7 @@ package cuckoohash
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 func debug(format string, a ...interface{}) {
@@ -27,6 +28,7 @@ const (
 	KILOBYTE
 	MEGABYTE
 	GIGABYTE
+	TERABYTE
 )
 
 // Taken from https://github.com/cloudfoundry/bytefmt/blob/master/bytes.go with modification
@@ -35,20 +37,26 @@ func formatBytes(bytes uint64) string {
 	value := float64(bytes)
 
 	switch {
+	case bytes >= TERABYTE:
+		unit = "T"
+		value = value / TERABYTE
 	case bytes >= GIGABYTE:
-		unit = "GiB"
+		unit = "G"
 		value = value / GIGABYTE
 	case bytes >= MEGABYTE:
-		unit = "MiB"
+		unit = "M"
 		value = value / MEGABYTE
 	case bytes >= KILOBYTE:
-		unit = "KiB"
+		unit = "K"
 		value = value / KILOBYTE
 	case bytes >= BYTE:
 		unit = "B"
+	case bytes == 0:
+		return "0B"
 	}
 
 	result := strconv.FormatFloat(value, 'f', 1, 64)
+	result = strings.TrimSuffix(result, ".0")
 	return result + unit
 }
 

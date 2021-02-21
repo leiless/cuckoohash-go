@@ -96,9 +96,12 @@ func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint
 	if hasher1 == nil || hasher2 == nil {
 		return nil, ErrInvalidArgument
 	}
+	// Basic sanity check for the hash functions
+	_ = hasher1.Hash64WithSeed(nil, 0)
+	_ = hasher2.Hash64WithSeed(nil, 0)
 
 	seed1 := uint64(time.Now().UnixNano())
-	seed2 := seed1 * 17
+	seed2 := seed1 * 31
 
 	m := &Map{
 		debug:         debug,
@@ -576,4 +579,21 @@ func (m *Map) expandBucket() {
 	m.expansionCount++
 
 	m.sanityCheck()
+}
+
+func (m *Map) String() string {
+	return fmt.Sprintf(
+		"[%T "+
+			"buckets=%p count=%v debug=%v "+
+			"bytesPerKey=%v keysPerBucket=%v bucketCount=%v bucketPower=%v "+
+			"expandable=%v expansionCount=%v zeroHash2Count=%v valuesByteCount=%v "+
+			"seed1=%#x seed2=%#x hasher1=%p hasher2=%p r=%p "+
+			"loadFactor=%v memoryInBytes=%v"+
+			"]",
+		Map{}, m.buckets, m.count, m.debug,
+		m.bytesPerKey, m.keysPerBucket, m.bucketCount, m.bucketPower,
+		m.expandable, m.expansionCount, m.zeroHash2Count, m.valuesByteCount,
+		m.seed1, m.seed2, m.hasher1, m.hasher2, m.r,
+		m.LoadFactor(), formatBytes(m.MemoryInBytes()),
+	)
 }

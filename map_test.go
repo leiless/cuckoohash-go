@@ -245,3 +245,73 @@ func TestMap4(t *testing.T) {
 		assert.False(t, m.ContainsValue(vals[i]))
 	}
 }
+
+func TestMap5(t *testing.T) {
+	m, err := newMap(false, md5.Size, 16, 1, h1, h2, true)
+	assert.Nil(t, err)
+
+	n := 5_000_000
+	keys := make([][]byte, n)
+	for i := 0; i < n; i++ {
+		keys[i] = genRandomBytes(md5.Size)
+	}
+
+	for i := 0; i < n; i++ {
+		oldVal, err := m.Put(keys[i], nil, true)
+		if err != nil {
+			panic(err)
+		} else if oldVal != nil {
+			panic(fmt.Sprintf("expected nil value, got %v", oldVal))
+		}
+	}
+
+	m.debug = true
+	m.sanityCheck()
+}
+
+func BenchmarkMap1(b *testing.B) {
+	m, err := newMap(false, md5.Size, 16, 1, h1, h2, true)
+	if err != nil {
+		panic(err)
+	}
+
+	n := 5_000_000
+	keys := make([][]byte, n)
+	for i := 0; i < n; i++ {
+		keys[i] = genRandomBytes(md5.Size)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < n; i++ {
+		oldVal, err := m.Put(keys[i], nil, true)
+		if err != nil {
+			panic(err)
+		} else if oldVal != nil {
+			panic(fmt.Sprintf("expected nil value, got %v", oldVal))
+		}
+	}
+}
+
+func BenchmarkMap2(b *testing.B) {
+	// With preset bucket count, no expansion are needed
+	m, err := newMap(false, md5.Size, 16, 524_288, h1, h2, true)
+	if err != nil {
+		panic(err)
+	}
+
+	n := 5_000_000
+	keys := make([][]byte, n)
+	for i := 0; i < n; i++ {
+		keys[i] = genRandomBytes(md5.Size)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < n; i++ {
+		oldVal, err := m.Put(keys[i], nil, true)
+		if err != nil {
+			panic(err)
+		} else if oldVal != nil {
+			panic(fmt.Sprintf("expected nil value, got %v", oldVal))
+		}
+	}
+}

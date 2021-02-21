@@ -76,3 +76,38 @@ func TestNewMap(t *testing.T) {
 
 	t.Log(m)
 }
+
+func TestNewMap2(t *testing.T) {
+	m, err := newMap(true, 1, 1, 1, h1, h2, true)
+	assert.Nil(t, err)
+
+	for i := 0; i < 256; i++ {
+		k := []byte{byte(i)}
+		oldVal, err := m.Put(k, k, true)
+		assert.Nil(t, err)
+		assert.Nil(t, oldVal)
+
+		v := m.Get(k)
+		assert.Equal(t, k, v)
+	}
+
+	assert.Equal(t, m.Count(), uint64(256))
+	t.Log(m)
+
+	for i := 0; i < 256; i++ {
+		k := []byte{byte(i)}
+		oldVal, err := m.Del(k)
+		assert.Nil(t, err)
+		assert.Equal(t, k, oldVal)
+	}
+
+	assert.True(t, m.IsEmpty())
+	t.Log(m)
+
+	for i := 0; i < 256; i++ {
+		k := []byte{byte(i)}
+		oldVal, err := m.Del(k)
+		assert.ErrorIs(t, err, ErrKeyNotFound)
+		assert.Nil(t, oldVal)
+	}
+}

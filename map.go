@@ -613,10 +613,10 @@ func (m *Map) Del(key []byte) ([]byte, error) {
 			}
 		}
 
-		bucket[i] = nil
 		m.count--
 		oldVal := bucket[i][m.bytesPerKey:]
 		m.valuesByteCount -= uint64(len(oldVal))
+		bucket[i] = nil
 
 		m.sanityCheck()
 		return result{

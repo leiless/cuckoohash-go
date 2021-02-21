@@ -538,6 +538,8 @@ func (m *Map) rehashOrExpand(key []byte, val []byte, h uint32) error {
 	if m.debug {
 		debug("After expansion: %v", m)
 	}
+	// Update key, val by swapped out kv
+	key, val = kv[:m.bytesPerKey], kv[m.bytesPerKey:]
 	err := m.put1(key, val)
 	m.assertEQ(err, nil)
 	return nil

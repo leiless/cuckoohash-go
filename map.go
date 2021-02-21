@@ -147,7 +147,7 @@ func (m *Map) assert(cond bool) {
 func (m *Map) assertEQ(lhs, rhs interface{}) {
 	if m.debug {
 		if lhs != rhs {
-			panic(fmt.Sprintf("equality assertion failure: lhs: %T %v rhs: %T %v", lhs, lhs, rhs, rhs))
+			panic(fmt.Sprintf("equality assertion failure: %T vs %T, %v vs %v", lhs, rhs, lhs, rhs))
 		}
 	}
 }

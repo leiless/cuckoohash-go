@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/bits"
 	"math/rand"
+	"strconv"
 	"time"
 )
 
@@ -422,6 +423,9 @@ func (m *Map) put1(key []byte, val []byte) error {
 		return nil
 	}
 
+	if m.debug {
+		debug("Rehash or expand: %#x vs %#x", h1, h2)
+	}
 	// Use deterministic selection(with the seed1 backed by m.r)
 	h := h1
 	if m.r.Uint64()&1 == 0 {
@@ -531,11 +535,11 @@ func (m *Map) rehashOrExpand(key []byte, val []byte, h uint32) error {
 	}
 
 	m.expandBucket()
+	if m.debug {
+		debug("After expansion: %v", m)
+	}
 	err := m.put1(key, val)
 	m.assertEQ(err, nil)
-	if m.debug {
-		debug("After expanded: %v", m)
-	}
 	return nil
 }
 
@@ -589,6 +593,7 @@ func (m *Map) expandBucket() {
 }
 
 func (m *Map) String() string {
+	f := strconv.FormatFloat(m.LoadFactor(), 'f', 3, 64)
 	return fmt.Sprintf(
 		"[%T "+
 			"buckets=%p count=%v debug=%v "+
@@ -601,6 +606,6 @@ func (m *Map) String() string {
 		m.bytesPerKey, m.keysPerBucket, m.bucketCount, m.bucketPower,
 		m.expandable, m.expansionCount, m.zeroHash2Count, m.valuesByteCount,
 		m.seed1, m.seed2, m.hasher1, m.hasher2, m.r,
-		m.LoadFactor(), formatByteSize(m.MemoryInBytes()),
+		f, formatByteSize(m.MemoryInBytes()),
 	)
 }

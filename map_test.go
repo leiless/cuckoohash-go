@@ -45,4 +45,6 @@ func TestNewMap(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Nil(t, oldVal)
 	}
+
+	t.Log(m)
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/OneOfOne/xxhash"
 	"github.com/dgryski/go-farm"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"io"
 	"testing"
 )
@@ -141,10 +142,10 @@ func TestMap3(t *testing.T) {
 	m, err := newMap(true, md5.Size, 1, 1, h1, h2, true)
 	assert.Nil(t, err)
 
-	var list [][]byte
 	n := 5000
+	list := make([][]byte, n)
 	for i := 0; i < n; i++ {
-		list = append(list, genRandomBytes(md5.Size))
+		list[i] = genRandomBytes(md5.Size)
 		oldVal, err := m.Put(list[i], list[i], true)
 		assert.Nil(t, err)
 		assert.Nil(t, oldVal)
@@ -154,13 +155,93 @@ func TestMap3(t *testing.T) {
 		assert.Equal(t, m.Get(list[i]), list[i])
 	}
 
-	assert.Equal(t, m.count, uint64(n))
+	assert.Equal(t, m.Count(), uint64(n))
 	t.Log(m)
 
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < n; i++ {
 		k := genRandomBytes(md5.Size)
 		assert.Nil(t, m.Get(k))
 		assert.False(t, m.ContainsKey(k))
 		assert.False(t, m.ContainsValue(k))
+	}
+
+	for i := 0; i < n; i += 2 {
+		oldVal, err := m.Del(list[i])
+		assert.Nil(t, err)
+		assert.Equal(t, list[i], oldVal)
+	}
+
+	assert.Equal(t, m.Count(), uint64(n)/2)
+
+	for i := 1; i < n; i += 2 {
+		assert.NotNil(t, m.Get(list[i]))
+		assert.True(t, m.ContainsKey(list[i]))
+		assert.True(t, m.ContainsValue(list[i]))
+	}
+
+	for i := 1; i < n; i += 2 {
+		oldVal, err := m.Del(list[i])
+		assert.Nil(t, err)
+		assert.Equal(t, list[i], oldVal)
+	}
+
+	assert.True(t, m.IsEmpty())
+
+	for i := 0; i < n; i++ {
+		assert.Nil(t, m.Get(list[i]))
+		assert.False(t, m.ContainsKey(list[i]))
+		assert.False(t, m.ContainsValue(list[i]))
+	}
+}
+
+func TestMap4(t *testing.T) {
+	m, err := newMap(true, md5.Size, 1, 1, h1, h2, true)
+	assert.Nil(t, err)
+	require.Greater(t, md5.Size, 1)
+
+	n := 5000
+	keys := make([][]byte, n)
+	vals := make([][]byte, n)
+	for i := 0; i < n; i++ {
+		keys[i] = genRandomBytes(md5.Size)
+		vals[i] = genRandomBytes(md5.Size / 2)
+
+		oldVal, err := m.Put(keys[i], vals[i], true)
+		assert.Nil(t, err)
+		assert.Nil(t, oldVal)
+
+		assert.True(t, m.ContainsKey(keys[i]))
+		assert.True(t, m.ContainsValue(vals[i]))
+		assert.Equal(t, m.Get(keys[i]), vals[i])
+	}
+
+	for i := 0; i < n; i += 2 {
+		oldVal, err := m.Del(keys[i])
+		assert.Nil(t, err)
+		assert.Equal(t, vals[i], oldVal)
+
+		assert.Nil(t, m.Get(keys[i]))
+	}
+
+	assert.Equal(t, m.Count(), uint64(n)/2)
+
+	for i := 1; i < n; i += 2 {
+		assert.NotNil(t, m.Get(keys[i]))
+		assert.True(t, m.ContainsKey(keys[i]))
+		assert.True(t, m.ContainsValue(vals[i]))
+	}
+
+	for i := 1; i < n; i += 2 {
+		oldVal, err := m.Del(keys[i])
+		assert.Nil(t, err)
+		assert.Equal(t, vals[i], oldVal)
+	}
+
+	assert.True(t, m.IsEmpty())
+
+	for i := 0; i < n; i++ {
+		assert.Nil(t, m.Get(keys[i]))
+		assert.False(t, m.ContainsKey(keys[i]))
+		assert.False(t, m.ContainsValue(vals[i]))
 	}
 }

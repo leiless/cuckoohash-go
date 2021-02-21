@@ -63,8 +63,8 @@ type Map struct {
 
 	seed1   uint64
 	seed2   uint64
-	hasher1 Hasher
-	hasher2 Hasher
+	hasher1 func(b []byte, s uint64) uint64
+	hasher2 func(b []byte, s uint64) uint64
 	r       rand.Source64
 }
 
@@ -80,7 +80,7 @@ func (m *Map) initBuckets() {
 	m.valuesByteCount = 0
 }
 
-func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 Hasher) (*Map, error) {
+func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 func(b []byte, s uint64) uint64) (*Map, error) {
 	if bytesPerKey == 0 {
 		return nil, ErrInvalidArgument
 	}
@@ -97,8 +97,8 @@ func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint
 		return nil, ErrInvalidArgument
 	}
 	// Basic sanity check for the hash functions
-	_ = hasher1.Hash64WithSeed(nil, 0)
-	_ = hasher2.Hash64WithSeed(nil, 0)
+	_ = hasher1(nil, 0)
+	_ = hasher2(nil, 0)
 
 	seed1 := uint64(time.Now().UnixNano())
 	seed2 := seed1 * 31
@@ -122,7 +122,7 @@ func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint
 }
 
 // By default, Map is expandable, pass false as last argument to cancel this behaviour
-func NewMap(bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 Hasher, expandableOpt ...bool) (*Map, error) {
+func NewMap(bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 func(b []byte, s uint64) uint64, expandableOpt ...bool) (*Map, error) {
 	expandable := true
 	if n := len(expandableOpt); n > 1 {
 		panic(fmt.Sprintf("at most one `expandableOpt` argument can be passed, got %v", n))
@@ -211,7 +211,7 @@ func (m *Map) kvIndexByKey(key []byte, f bucketIndexFunc) interface{} {
 // Return a raw hash value
 // uint32 is sufficient in our use case.
 func (m *Map) hash1Raw(key []byte) uint32 {
-	return uint32(m.hasher1.Hash64WithSeed(key, m.seed1))
+	return uint32(m.hasher1(key, m.seed1))
 }
 
 // Return a masked(according to the bucket power) hash index
@@ -220,7 +220,7 @@ func (m *Map) hash1(key []byte) uint32 {
 }
 
 func (m *Map) hash2Raw(key []byte, h1 uint32) uint32 {
-	hh := m.hasher2.Hash64WithSeed(key, m.seed2)
+	hh := m.hasher2(key, m.seed2)
 	h := uint32(hh)
 	if h == 0 {
 		hh2 := simpleHash(key)

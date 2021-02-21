@@ -63,10 +63,12 @@ type Map struct {
 
 	seed1   uint64
 	seed2   uint64
-	hasher1 func(b []byte, s uint64) uint64
-	hasher2 func(b []byte, s uint64) uint64
+	hasher1 hash64WithSeedFunc
+	hasher2 hash64WithSeedFunc
 	r       rand.Source64
 }
+
+type hash64WithSeedFunc = func(b []byte, s uint64) uint64
 
 func (m *Map) initBuckets() {
 	buckets := make([][][]byte, m.bucketCount)
@@ -80,7 +82,7 @@ func (m *Map) initBuckets() {
 	m.valuesByteCount = 0
 }
 
-func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 func(b []byte, s uint64) uint64) (*Map, error) {
+func newMap(debug bool, bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 hash64WithSeedFunc, expandable bool) (*Map, error) {
 	if bytesPerKey == 0 {
 		return nil, ErrInvalidArgument
 	}
@@ -122,14 +124,14 @@ func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint
 }
 
 // By default, Map is expandable, pass false as last argument to cancel this behaviour
-func NewMap(bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 func(b []byte, s uint64) uint64, expandableOpt ...bool) (*Map, error) {
+func NewMap(bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 hash64WithSeedFunc, expandableOpt ...bool) (*Map, error) {
 	expandable := true
 	if n := len(expandableOpt); n > 1 {
 		panic(fmt.Sprintf("at most one `expandableOpt` argument can be passed, got %v", n))
 	} else if n != 0 {
 		expandable = expandableOpt[0]
 	}
-	return newMap(false, expandable, bytesPerKey, keysPerBucket, bucketCount, hasher1, hasher2)
+	return newMap(false, bytesPerKey, keysPerBucket, bucketCount, hasher1, hasher2, expandable)
 }
 
 // Clumsy but cheap assertion, mainly used for debugging
@@ -277,7 +279,7 @@ func (m *Map) containsValue(val []byte) bool {
 }
 
 func (m *Map) assertCount() {
-	m.assertEQ(m.bucketCount, 1<<m.bucketPower)
+	m.assertEQ(m.bucketCount, uint32(1)<<m.bucketPower)
 	m.assert(m.count <= uint64(m.bucketCount*m.keysPerBucket))
 
 	var count uint64

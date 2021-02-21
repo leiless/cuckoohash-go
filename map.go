@@ -118,6 +118,17 @@ func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint
 	return m, nil
 }
 
+// By default, Map is expandable, pass false as last argument to cancel this behaviour
+func NewMap(bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 Hasher, expandableOpt ...bool) (*Map, error) {
+	expandable := true
+	if n := len(expandableOpt); n > 1 {
+		panic(fmt.Sprintf("at most one bool can be passed to `expandableOpt`, got %v", n))
+	} else if n != 0 {
+		expandable = expandableOpt[0]
+	}
+	return newMap(false, expandable, bytesPerKey, keysPerBucket, bucketCount, hasher1, hasher2)
+}
+
 // Clumsy but cheap assertion, mainly used for debugging
 func (m *Map) assert(cond bool) {
 	if m.debug {

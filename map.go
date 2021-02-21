@@ -378,7 +378,7 @@ func (m *Map) Get(key []byte, defaultValue ...[]byte) []byte {
 
 	v := m.kvIndexByKey(key, func(b [][]byte, i uint32) interface{} {
 		if b != nil {
-			return b[m.bytesPerKey:]
+			return b[i][m.bytesPerKey:]
 		}
 		return []byte(nil)
 	}).([]byte)

@@ -39,12 +39,26 @@ func TestNewMap(t *testing.T) {
 	m.Clear()
 	t.Log(m)
 
-	for i := 0; i < 256; i++ {
-		b := []byte{byte(i)}
-		oldVal, err := m.Put(b, b, true)
-		assert.Nil(t, err)
-		assert.Nil(t, oldVal)
-	}
+	var b, oldVal []byte
+
+	b = []byte{byte(0)}
+	oldVal, err = m.Put(b, b, true)
+	assert.Nil(t, err)
+	assert.Nil(t, oldVal)
+
+	b = []byte{byte(1)}
+	oldVal, err = m.Put(b, b, true)
+	assert.Nil(t, err)
+	assert.Nil(t, oldVal)
 
 	t.Log(m)
+	assert.False(t, m.IsEmpty())
+	assert.Equal(t, m.Count(), uint64(2))
+
+	m.sanityCheck()
+
+	var v []byte
+	b = []byte{byte(0)}
+	v = m.Get(b)
+	assert.Equal(t, b, v)
 }

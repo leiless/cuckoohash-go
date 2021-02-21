@@ -332,5 +332,5 @@ func (s *Set) replace(t *Set) {
 
 func (s *Set) String() string {
 	return fmt.Sprintf("[%T debug=%v, mem=%v, loadFactor=%.2f, count=%v, bytesPerKey=%v, keysPerBucket=%v, buckets=%v, bucketsPow=%v expandable=%v expansionCount=%v zeroHash2Count=%v]",
-		s, s.debug, formatBytes(s.MemoryInBytes()), s.LoadFactor(), s.count, s.bytesPerKey, s.keysPerBucket, s.buckets, s.bucketsPow, s.expandable, s.expansionCount, s.zeroHash2Count)
+		s, s.debug, formatByteSize(s.MemoryInBytes()), s.LoadFactor(), s.count, s.bytesPerKey, s.keysPerBucket, s.buckets, s.bucketsPow, s.expandable, s.expansionCount, s.zeroHash2Count)
 }

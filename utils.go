@@ -31,8 +31,8 @@ const (
 	TERABYTE
 )
 
-// Taken from https://github.com/cloudfoundry/bytefmt/blob/master/bytes.go with modification
-func formatBytes(bytes uint64) string {
+// Taken from https://github.com/cloudfoundry/bytefmt/blob/master/bytes.go#L36 with modification
+func formatByteSize(bytes uint64) string {
 	unit := ""
 	value := float64(bytes)
 

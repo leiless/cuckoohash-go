@@ -597,6 +597,6 @@ func (m *Map) String() string {
 		m.bytesPerKey, m.keysPerBucket, m.bucketCount, m.bucketPower,
 		m.expandable, m.expansionCount, m.zeroHash2Count, m.valuesByteCount,
 		m.seed1, m.seed2, m.hasher1, m.hasher2, m.r,
-		m.LoadFactor(), formatBytes(m.MemoryInBytes()),
+		m.LoadFactor(), formatByteSize(m.MemoryInBytes()),
 	)
 }

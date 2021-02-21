@@ -423,9 +423,6 @@ func (m *Map) put1(key []byte, val []byte) error {
 		return nil
 	}
 
-	if m.debug {
-		debug("Rehash or expand: %#x vs %#x", h1, h2)
-	}
 	// Use deterministic selection(with the seed1 backed by m.r)
 	h := h1
 	if m.r.Uint64()&1 == 0 {

@@ -20,17 +20,17 @@ func TestNewMap(t *testing.T) {
 	t.Log(m)
 
 	for i := 0; i < 256; i++ {
-		b := []byte{byte(i)}
-		assert.Nil(t, m.Get(b))
-		assert.False(t, m.ContainsKey(b))
-		assert.False(t, m.ContainsValue(b))
+		k := []byte{byte(i)}
+		assert.Nil(t, m.Get(k))
+		assert.False(t, m.ContainsKey(k))
+		assert.False(t, m.ContainsValue(k))
 	}
 	for i := 0; i < 256; i++ {
 		for j := 0; j < 256; j++ {
-			b := []byte{byte(i), byte(j)}
-			assert.Nil(t, m.Get(b))
-			assert.False(t, m.ContainsKey(b))
-			assert.False(t, m.ContainsValue(b))
+			k := []byte{byte(i), byte(j)}
+			assert.Nil(t, m.Get(k))
+			assert.False(t, m.ContainsKey(k))
+			assert.False(t, m.ContainsValue(k))
 		}
 	}
 	assert.False(t, m.ContainsKey(nil))
@@ -39,26 +39,34 @@ func TestNewMap(t *testing.T) {
 	m.Clear()
 	t.Log(m)
 
-	var b, oldVal []byte
+	for i := 0; i < 256; i++ {
+		k := []byte{byte(i)}
+		oldVal, err := m.Put(k, k, true)
+		assert.Nil(t, err)
+		assert.Nil(t, oldVal)
 
-	b = []byte{byte(0)}
-	oldVal, err = m.Put(b, b, true)
-	assert.Nil(t, err)
-	assert.Nil(t, oldVal)
+		v := m.Get(k)
+		assert.Equal(t, k, v)
+	}
 
-	b = []byte{byte(1)}
-	oldVal, err = m.Put(b, b, true)
-	assert.Nil(t, err)
-	assert.Nil(t, oldVal)
+	for i := 0; i < 256; i++ {
+		k := []byte{byte(i)}
+		oldVal, err := m.Put(k, k, true)
+		assert.Nil(t, err)
+		assert.Equal(t, k, oldVal)
+
+		v := m.Get(k)
+		assert.Equal(t, k, v)
+	}
+
+	for i := 0; i < 256; i++ {
+		for j := 0; j < 256; j++ {
+			k := []byte{byte(i), byte(j)}
+			assert.Nil(t, m.Get(k))
+			assert.False(t, m.ContainsKey(k))
+			assert.False(t, m.ContainsValue(k))
+		}
+	}
 
 	t.Log(m)
-	assert.False(t, m.IsEmpty())
-	assert.Equal(t, m.Count(), uint64(2))
-
-	m.sanityCheck()
-
-	var v []byte
-	b = []byte{byte(0)}
-	v = m.Get(b)
-	assert.Equal(t, b, v)
 }

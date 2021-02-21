@@ -376,9 +376,9 @@ func (m *Map) Get(key []byte, defaultValue ...[]byte) []byte {
 		panic(fmt.Sprintf("at most one `defaultValue` argument can be passed, got %v", n))
 	}
 
-	v := m.kvIndexByKey(key, func(b [][]byte, i uint32) interface{} {
-		if b != nil {
-			return b[i][m.bytesPerKey:]
+	v := m.kvIndexByKey(key, func(bucket [][]byte, i uint32) interface{} {
+		if bucket != nil {
+			return bucket[i][m.bytesPerKey:]
 		}
 		return []byte(nil)
 	}).([]byte)
@@ -446,10 +446,10 @@ func (m *Map) Put(key []byte, val []byte, ifAbsentOpt ...bool) ([]byte, error) {
 			e error
 		}
 
-		v := m.kvIndexByKey(key, func(b [][]byte, i uint32) interface{} {
-			if b != nil {
+		v := m.kvIndexByKey(key, func(bucket [][]byte, i uint32) interface{} {
+			if bucket != nil {
 				return result{
-					b: b[i][m.bytesPerKey:],
+					b: bucket[i][m.bytesPerKey:],
 				}
 			}
 			return result{
@@ -589,6 +589,33 @@ func (m *Map) expandBucket() {
 	m.expansionCount++
 
 	m.sanityCheck()
+}
+
+func (m *Map) Del(key []byte) ([]byte, error) {
+	type result struct {
+		b []byte
+		e error
+	}
+
+	v := m.kvIndexByKey(key, func(bucket [][]byte, i uint32) interface{} {
+		if bucket == nil {
+			return result{
+				e: ErrKeyNotFound,
+			}
+		}
+
+		bucket[i] = nil
+		m.count--
+		oldVal := bucket[i][m.bytesPerKey:]
+		m.valuesByteCount -= uint64(len(oldVal))
+
+		m.sanityCheck()
+		return result{
+			b: oldVal,
+		}
+	}).(result)
+
+	return v.b, v.e
 }
 
 func (m *Map) String() string {

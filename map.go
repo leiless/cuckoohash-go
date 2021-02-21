@@ -41,6 +41,9 @@ type Map struct {
 	// Count of inserted keys
 	count uint64
 
+	// Used for testing
+	debug bool
+
 	// Fingerprint length
 	bytesPerKey uint32
 	// How many keys a bucket will store
@@ -63,9 +66,6 @@ type Map struct {
 	hasher1 Hasher
 	hasher2 Hasher
 	r       rand.Source64
-
-	// Used in testing
-	debug bool
 }
 
 func (m *Map) initBuckets() {
@@ -73,8 +73,11 @@ func (m *Map) initBuckets() {
 	for i := range buckets {
 		buckets[i] = make([][]byte, m.keysPerBucket)
 	}
-	// Key-value, i.e. [][][*] are allocated on demand
+	// Key-value combo, i.e. [][][*] are allocated on demand
 	m.buckets = buckets
+	// Reset counting
+	m.count = 0
+	m.valuesByteCount = 0
 }
 
 func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 Hasher) (*Map, error) {
@@ -98,6 +101,7 @@ func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint
 	seed2 := seed1 * 17
 
 	m := &Map{
+		debug:         debug,
 		bytesPerKey:   bytesPerKey,
 		keysPerBucket: keysPerBucket,
 		bucketCount:   bucketCount,
@@ -108,7 +112,6 @@ func newMap(debug, expandable bool, bytesPerKey, keysPerBucket, bucketCount uint
 		hasher1:       hasher1,
 		hasher2:       hasher2,
 		r:             rand.NewSource(int64(seed1)).(rand.Source64),
-		debug:         debug,
 	}
 	m.initBuckets()
 	return m, nil
@@ -342,8 +345,6 @@ func (m *Map) Clear() {
 		}
 	} else {
 		m.initBuckets()
-		m.valuesByteCount = 0
-		m.count = 0
 	}
 }
 

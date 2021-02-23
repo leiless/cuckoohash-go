@@ -9,7 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
+	rand2 "math/rand"
 	"testing"
+	"time"
 )
 
 var (
@@ -266,6 +268,96 @@ func TestMap5(t *testing.T) {
 	}
 
 	m.debug = true
+	m.sanityCheck()
+}
+
+func pickN(big []int, n int) []int {
+	if n <= 0 {
+		return nil
+	}
+	if n > len(big) {
+		n = len(big)
+	}
+	cot := make([]int, n)
+	arr := make([]int, n)
+	k := (len(big) / n) * n
+	r := rand2.NewSource(time.Now().UnixNano()).(rand2.Source64)
+	for i, e := range big {
+		var j int
+		if i < k {
+			j = i % n
+		} else {
+			j = int(r.Uint64()&0x7fff_ffff) % n
+		}
+		cot[j] += 1
+		if int(r.Uint64())%cot[j] == 0 {
+			arr[j] = e
+		}
+	}
+	return arr
+}
+
+func intArrToMap(arr []int) map[int]struct{} {
+	m := make(map[int]struct{})
+	for _, e := range arr {
+		m[e] = struct{}{}
+	}
+	return m
+}
+
+// Fuzzing test
+func TestMap6(t *testing.T) {
+	m, err := newMap(true, md5.Size, 3, 1, h1, h2, true)
+	assert.Nil(t, err)
+
+	n := 10000
+	keys := make([][]byte, n)
+	vals := make([][]byte, n)
+	for i := 0; i < n; i++ {
+		keys[i] = genRandomBytes(md5.Size)
+		vals[i] = genRandomBytes(md5.Size / 4)
+
+		oldVal, err := m.Put(keys[i], vals[i], true)
+		assert.Nil(t, err)
+		assert.Nil(t, oldVal)
+	}
+
+	r := rand2.NewSource(time.Now().UnixNano()).(rand2.Source64)
+	var p int
+	for p == 0 {
+		p = int(r.Uint64() % 5000)
+	}
+	indexes := make([]int, n)
+	for i := range indexes {
+		indexes[i] = i
+	}
+	keyIndexesToRemove := pickN(indexes, p)
+	for _, idx := range keyIndexesToRemove {
+		oldVal, err := m.Del(keys[idx])
+		assert.Nil(t, err)
+		assert.Equal(t, oldVal, vals[idx])
+	}
+
+	assert.Equal(t, int(m.Count()), len(keys) - len(keyIndexesToRemove))
+
+	indexSet := intArrToMap(keyIndexesToRemove)
+	for i := 0; i < n; i++ {
+		if _, ok := indexSet[i]; ok {
+			// Key-val removed
+			assert.Nil(t, m.Get(keys[i]))
+			assert.False(t, m.ContainsKey(keys[i]))
+			assert.False(t, m.ContainsValue(vals[i]))
+		} else {
+			val := m.Get(keys[i])
+			assert.Equal(t, val, vals[i])
+			assert.True(t, m.ContainsKey(keys[i]))
+			assert.True(t, m.ContainsValue(vals[i]))
+		}
+	}
+
+	m.sanityCheck()
+
+	m.Clear()
 	m.sanityCheck()
 }
 

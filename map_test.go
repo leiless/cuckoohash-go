@@ -321,6 +321,7 @@ func TestMap6(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Nil(t, oldVal)
 	}
+	t.Log(m)
 
 	r := rand2.NewSource(time.Now().UnixNano()).(rand2.Source64)
 	var p int
@@ -356,6 +357,7 @@ func TestMap6(t *testing.T) {
 	}
 
 	m.sanityCheck()
+	t.Log(m)
 
 	m.Clear()
 	m.sanityCheck()

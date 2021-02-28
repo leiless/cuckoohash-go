@@ -321,6 +321,7 @@ func TestMap6(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Nil(t, oldVal)
 	}
+	assert.Equal(t, m.Count(), uint64(n))
 	t.Log(m)
 
 	r := rand2.NewSource(time.Now().UnixNano()).(rand2.Source64)
@@ -339,7 +340,7 @@ func TestMap6(t *testing.T) {
 		assert.Equal(t, oldVal, vals[idx])
 	}
 
-	assert.Equal(t, int(m.Count()), len(keys) - len(keyIndexesToRemove))
+	assert.Equal(t, int(m.Count()), len(keys)-len(keyIndexesToRemove))
 
 	indexSet := intArrToMap(keyIndexesToRemove)
 	for i := 0; i < n; i++ {
@@ -361,6 +362,71 @@ func TestMap6(t *testing.T) {
 
 	m.Clear()
 	m.sanityCheck()
+}
+
+// In-expandable Map tests
+func TestMap7(t *testing.T) {
+	m, err := newMap(true, md5.Size, 2, 1, h1, h2, false)
+	assert.Nil(t, err)
+
+	b1 := genRandomBytes(md5.Size)
+	oldVal, err := m.Put(b1, b1, true)
+	assert.Nil(t, err)
+	assert.Nil(t, oldVal)
+
+	oldVal, err = m.Put(b1, nil, true)
+	assert.Nil(t, err)
+	assert.Equal(t, oldVal, b1)
+
+	b2 := genRandomBytes(md5.Size)
+	oldVal, err = m.Put(b2, b2, true)
+	assert.Nil(t, err)
+	assert.Nil(t, oldVal)
+
+	t.Log(m)
+	assert.Equal(t, m.LoadFactor(), 1.0)
+
+	oldVal, err = m.Put(b2, b1, true)
+	assert.Nil(t, err)
+	assert.Equal(t, oldVal, b2)
+
+	b3 := genRandomBytes(md5.Size)
+	oldVal, err = m.Put(b3, b3, true)
+	assert.ErrorIs(t, err, ErrBucketIsFull)
+	assert.Nil(t, oldVal)
+
+	assert.Equal(t, m.Get(b1), b1)
+	assert.True(t, m.ContainsKey(b1))
+	assert.True(t, m.ContainsValue(b1))
+
+	assert.Nil(t, m.Get(b3))
+	assert.False(t, m.ContainsKey(b3))
+	assert.False(t, m.ContainsValue(b3))
+
+	assert.Nil(t, m.Get(nil))
+	assert.False(t, m.ContainsKey(nil))
+	assert.False(t, m.ContainsValue(nil))
+
+	oldVal, err = m.Del(b1)
+	assert.Nil(t, err)
+	assert.Equal(t, oldVal, b1)
+
+	assert.Equal(t, m.LoadFactor(), 0.5)
+
+	oldVal, err = m.Put(b3, b3, true)
+	assert.Nil(t, err)
+	assert.Nil(t, oldVal)
+	assert.Equal(t, m.LoadFactor(), 1.0)
+
+	assert.Nil(t, m.Get(b1))
+	assert.False(t, m.ContainsKey(b1))
+	assert.False(t, m.ContainsValue(b1))
+
+	assert.Equal(t, m.Get(b3), b3)
+	assert.True(t, m.ContainsKey(b3))
+	assert.True(t, m.ContainsValue(b3))
+
+	t.Log(m)
 }
 
 func BenchmarkMap1(b *testing.B) {

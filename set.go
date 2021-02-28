@@ -72,6 +72,11 @@ func (s *Set) Put(key []byte, ifAbsentOpt ...bool) error {
 	return err
 }
 
+var (
+	mapTypeString = fmt.Sprintf("%T", Map{})
+	setTypeString = fmt.Sprintf("%T", Set{})
+)
+
 func (s *Set) String() string {
-	return strings.ReplaceAll(s.Map.String(), fmt.Sprintf("%T", Map{}), fmt.Sprintf("%T", Set{}))
+	return strings.ReplaceAll(s.Map.String(), mapTypeString, setTypeString)
 }

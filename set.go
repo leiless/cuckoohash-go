@@ -11,7 +11,7 @@ import (
 )
 
 type Set struct {
-	Map
+	m Map
 }
 
 func newSet(debug bool, bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 hash64WithSeedFunc, expandable bool) (*Set, error) {
@@ -19,7 +19,7 @@ func newSet(debug bool, bytesPerKey, keysPerBucket, bucketCount uint32, hasher1,
 	if err != nil {
 		return nil, err
 	}
-	return &Set{Map: *m}, nil
+	return &Set{m: *m}, nil
 }
 
 func NewSet(bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 hash64WithSeedFunc, expandableOpt ...bool) (*Set, error) {
@@ -33,11 +33,11 @@ func NewSet(bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 has
 }
 
 func (s *Set) Clear() {
-	s.Map.Clear()
+	s.m.Clear()
 }
 
 func (s *Set) Count() uint64 {
-	return s.Map.Count()
+	return s.m.Count()
 }
 
 func (s *Set) IsEmpty() bool {
@@ -45,19 +45,19 @@ func (s *Set) IsEmpty() bool {
 }
 
 func (s *Set) MemoryInBytes() uint64 {
-	return s.Map.MemoryInBytes()
+	return s.m.MemoryInBytes()
 }
 
 func (s *Set) LoadFactor() float64 {
-	return s.Map.LoadFactor()
+	return s.m.LoadFactor()
 }
 
 func (s *Set) Contains(key []byte) bool {
-	return s.Map.ContainsKey(key)
+	return s.m.ContainsKey(key)
 }
 
 func (s *Set) Del(key []byte) error {
-	_, err := s.Map.Del(key)
+	_, err := s.m.Del(key)
 	return err
 }
 
@@ -68,7 +68,7 @@ func (s *Set) Put(key []byte, ifAbsentOpt ...bool) error {
 	} else if n != 0 {
 		ifAbsent = ifAbsentOpt[0]
 	}
-	_, err := s.Map.Put(key, nil, ifAbsent)
+	_, err := s.m.Put(key, nil, ifAbsent)
 	return err
 }
 
@@ -78,5 +78,5 @@ var (
 )
 
 func (s *Set) String() string {
-	return strings.ReplaceAll(s.Map.String(), mapTypeString, setTypeString)
+	return strings.ReplaceAll(s.m.String(), mapTypeString, setTypeString)
 }

@@ -38,6 +38,7 @@ type Map struct {
 	// [*] bucket array
 	// [][*] which bucket
 	// [][][*] as key-value combo(full fingerprint, see case 2)
+	// (Hot path optimized)
 	buckets [][][]byte
 	// Count of inserted keys
 	count uint64
@@ -83,7 +84,7 @@ func (m *Map) initBuckets() {
 	m.valuesByteCount = 0
 }
 
-func newMap(debug bool, bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 hash64WithSeedFunc, expandable bool) (*Map, error) {
+func newMap(bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 hash64WithSeedFunc, debug, expandable bool) (*Map, error) {
 	if bytesPerKey == 0 {
 		return nil, ErrInvalidArgument
 	}
@@ -132,7 +133,7 @@ func NewMap(bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 has
 	} else if n != 0 {
 		expandable = expandableOpt[0]
 	}
-	return newMap(false, bytesPerKey, keysPerBucket, bucketCount, hasher1, hasher2, expandable)
+	return newMap(bytesPerKey, keysPerBucket, bucketCount, hasher1, hasher2, false, expandable)
 }
 
 // Clumsy but cheap assertion, mainly used for debugging

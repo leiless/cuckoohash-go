@@ -21,7 +21,7 @@ var (
 )
 
 func TestMap1(t *testing.T) {
-	m, err := newMap(true, 1, 1, 1, h1, h2, true)
+	m, err := newMap(1, 1, 1, h1, h2, true, true)
 	assert.Nil(t, err)
 	assert.True(t, m.IsEmpty())
 	assert.Equal(t, 0.0, m.LoadFactor())
@@ -91,7 +91,7 @@ func TestMap1(t *testing.T) {
 }
 
 func TestMap2(t *testing.T) {
-	m, err := newMap(true, 1, 1, 1, h1, h2, true)
+	m, err := newMap(1, 1, 1, h1, h2, true, true)
 	assert.Nil(t, err)
 
 	for i := 0; i < 256; i++ {
@@ -141,7 +141,7 @@ func genRandomBytes(size int) []byte {
 }
 
 func TestMap3(t *testing.T) {
-	m, err := newMap(true, md5.Size, 1, 1, h1, h2, true)
+	m, err := newMap(md5.Size, 1, 1, h1, h2, true, true)
 	assert.Nil(t, err)
 
 	n := 5000
@@ -197,7 +197,7 @@ func TestMap3(t *testing.T) {
 }
 
 func TestMap4(t *testing.T) {
-	m, err := newMap(true, md5.Size, 1, 1, h1, h2, true)
+	m, err := newMap(md5.Size, 1, 1, h1, h2, true, true)
 	assert.Nil(t, err)
 	require.Greater(t, md5.Size, 1)
 
@@ -249,7 +249,7 @@ func TestMap4(t *testing.T) {
 }
 
 func TestMap5(t *testing.T) {
-	m, err := newMap(false, md5.Size, 16, 1, h1, h2, true)
+	m, err := newMap(md5.Size, 16, 1, h1, h2, false, true)
 	assert.Nil(t, err)
 
 	n := 5_000_000
@@ -307,7 +307,7 @@ func intArrToMap(arr []int) map[int]struct{} {
 
 // Fuzzing test
 func TestMap6(t *testing.T) {
-	m, err := newMap(true, md5.Size, 3, 1, h1, h2, true)
+	m, err := newMap(md5.Size, 3, 1, h1, h2, true, true)
 	assert.Nil(t, err)
 
 	n := 10000
@@ -366,7 +366,7 @@ func TestMap6(t *testing.T) {
 
 // In-expandable Map tests
 func TestMap7(t *testing.T) {
-	m, err := newMap(true, md5.Size, 2, 1, h1, h2, false)
+	m, err := newMap(md5.Size, 2, 1, h1, h2, true, false)
 	assert.Nil(t, err)
 
 	b1 := genRandomBytes(md5.Size)
@@ -430,7 +430,7 @@ func TestMap7(t *testing.T) {
 }
 
 func BenchmarkMap1(b *testing.B) {
-	m, err := newMap(false, md5.Size, 16, 1, h1, h2, true)
+	m, err := newMap(md5.Size, 16, 1, h1, h2, false, true)
 	if err != nil {
 		panic(err)
 	}
@@ -454,7 +454,7 @@ func BenchmarkMap1(b *testing.B) {
 
 func BenchmarkMap2(b *testing.B) {
 	// With preset bucket count, no expansion are needed
-	m, err := newMap(false, md5.Size, 16, 524_288, h1, h2, true)
+	m, err := newMap(md5.Size, 16, 524_288, h1, h2, false, true)
 	if err != nil {
 		panic(err)
 	}

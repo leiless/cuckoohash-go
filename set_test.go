@@ -6,7 +6,7 @@ import (
 )
 
 func TestSet1(t *testing.T) {
-	s, err := newSet(true, 1, 1, 1, h1, h2, false)
+	s, err := newSet(1, 1, 1, h1, h2, true, false)
 	assert.Nil(t, err)
 	assert.True(t, s.IsEmpty())
 	t.Log(s)

@@ -14,8 +14,8 @@ type Set struct {
 	m Map
 }
 
-func newSet(debug bool, bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 hash64WithSeedFunc, expandable bool) (*Set, error) {
-	m, err := newMap(debug, bytesPerKey, keysPerBucket, bucketCount, hasher1, hasher2, expandable)
+func newSet(bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 hash64WithSeedFunc, debug, expandable bool) (*Set, error) {
+	m, err := newMap(bytesPerKey, keysPerBucket, bucketCount, hasher1, hasher2, debug, expandable)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +29,7 @@ func NewSet(bytesPerKey, keysPerBucket, bucketCount uint32, hasher1, hasher2 has
 	} else if n != 0 {
 		expandable = expandableOpt[0]
 	}
-	return newSet(false, bytesPerKey, keysPerBucket, bucketCount, hasher1, hasher2, expandable)
+	return newSet(bytesPerKey, keysPerBucket, bucketCount, hasher1, hasher2, false, expandable)
 }
 
 func (s *Set) Clear() {

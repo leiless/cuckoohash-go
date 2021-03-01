@@ -200,7 +200,6 @@ func (m *Map) kvIndexByKey(key []byte, f bucketIndexFunc) interface{} {
 	// Skip scan bucket if h2 equals to h1
 	if h2 := m.hash2(key, h1); h2 != h1 {
 		bucket = m.buckets[h2]
-		m.assertEQ(uint32(len(bucket)), m.keysPerBucket)
 		for i := uint32(0); i < m.keysPerBucket; i++ {
 			if bucket[i] != nil {
 				if k := bucket[i][:m.bytesPerKey]; byteSliceEquals(k, key) {

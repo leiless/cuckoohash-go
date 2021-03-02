@@ -1,6 +1,8 @@
 # Cuckoo Hash
 
 [![](https://godoc.org/github.com/leiless/cuckoohash-go?status.svg)](https://pkg.go.dev/github.com/leiless/cuckoohash-go)
+[![](https://goreportcard.com/badge/github.com/leiless/cuckoohash-go)](https://goreportcard.com/report/github.com/leiless/cuckoohash-go)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 `leiless/cuckoohash-go` package provides an expandable cuckoo hash map/set implementation in Go.
 

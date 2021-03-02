@@ -56,20 +56,17 @@ func (s *Set) Contains(key []byte) bool {
 	return s.m.ContainsKey(key)
 }
 
-func (s *Set) Del(key []byte) error {
+// Return true if key deleted from Set, false if key absent previously.
+func (s *Set) Del(key []byte) bool {
 	_, err := s.m.Del(key)
-	return err
+	// The only possible error is ErrKeyNotFound
+	return err == nil
 }
 
-func (s *Set) Put(key []byte, ifAbsentOpt ...bool) error {
-	var ifAbsent bool
-	if n := len(ifAbsentOpt); n > 1 {
-		panic(fmt.Sprintf("at most one `ifAbsentOpt` argument can be passed, got %v", n))
-	} else if n != 0 {
-		ifAbsent = ifAbsentOpt[0]
-	}
-	_, err := s.m.Put(key, nil, ifAbsent)
-	return err
+// Return true if key put in Set, false if the bucket if full(s.m.expandable is false)
+func (s *Set) Put(key []byte) bool {
+	_, err := s.m.Put(key, nil, true)
+	return err == nil
 }
 
 var (

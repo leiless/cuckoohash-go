@@ -12,32 +12,26 @@ func TestSet1(t *testing.T) {
 	t.Log(s)
 
 	b1 := []byte{0}
-	err = s.Put(b1, true)
-	assert.Nil(t, err)
+	assert.True(t, s.Put(b1))
 	assert.True(t, s.Contains(b1))
 	assert.Equal(t, s.Count(), uint64(1))
 	assert.Equal(t, s.LoadFactor(), 1.0)
 	t.Log(s)
 
-	err = s.Del(b1)
-	assert.Nil(t, err)
+	assert.True(t, s.Del(b1))
 	assert.True(t, s.IsEmpty())
 
-	err = s.Put(b1, true)
-	assert.Nil(t, err)
+	assert.True(t, s.Put(b1))
 	assert.Equal(t, s.Count(), uint64(1))
 
 	s.Clear()
 	assert.True(t, s.IsEmpty())
 
-	err = s.Put(b1, true)
-	assert.Nil(t, err)
-	err = s.Put(b1, true)
-	assert.Nil(t, err)
+	assert.True(t, s.Put(b1))
+	assert.True(t, s.Put(b1))
 
 	b2 := []byte{1}
-	err = s.Put(b2, true)
-	assert.ErrorIs(t, err, ErrBucketIsFull)
+	assert.False(t, s.Put(b2))
 
 	assert.Equal(t, s.Count(), uint64(1))
 }

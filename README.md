@@ -1,4 +1,4 @@
-# Cuckoo Hash
+# Cuckoo Hashing
 
 [![](https://godoc.org/github.com/leiless/cuckoohash-go?status.svg)](https://pkg.go.dev/github.com/leiless/cuckoohash-go)
 [![](https://goreportcard.com/badge/github.com/leiless/cuckoohash-go)](https://goreportcard.com/report/github.com/leiless/cuckoohash-go)

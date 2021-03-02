@@ -1,8 +1,12 @@
-# Cuckoo hash map/set in Go
+# Cuckoo Hash
 
-`cuckoohash-go` package provides an expandable cuckoo hash map/set implementation.
+`leiless/cuckoohash-go` package provides an expandable cuckoo hash map/set implementation in Go.
 
 ## Links
+
+[_Cuckoo Filter: Better Than Bloom_ by Bin Fan, Dave Andersen and Michael Kaminsky](https://www.cs.cmu.edu/~dga/papers/cuckoo-conext2014.pdf)
+
+[seiflotfy/cuckoofilter](https://github.com/seiflotfy/cuckoofilter)
 
 [Probabilistic Filters By Example: Cuckoo Filter and Bloom Filters](https://bdupras.github.io/filter-tutorial/)
 
@@ -10,4 +14,4 @@
 
 ## License
 
-Released under MIT License
+Released under MIT License.

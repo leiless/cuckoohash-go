@@ -1,5 +1,7 @@
 # Cuckoo Hash
 
+[![](https://godoc.org/github.com/leiless/cuckoohash-go?status.svg)](https://pkg.go.dev/github.com/leiless/cuckoohash-go)
+
 `leiless/cuckoohash-go` package provides an expandable cuckoo hash map/set implementation in Go.
 
 ## Links
